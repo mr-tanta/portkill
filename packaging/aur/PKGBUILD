@@ -1,6 +1,6 @@
 # Maintainer: mr-tanta <your-email@example.com>
 pkgname=portkill
-pkgver=2.3.1
+pkgver=3.1.0
 pkgrel=1
 pkgdesc="Advanced port management and network analysis tool with performance benchmarking"
 arch=('any')

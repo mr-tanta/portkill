@@ -3,7 +3,7 @@
 # Simple package creator for manual upload
 set -e
 
-VERSION="2.3.1"
+VERSION="3.1.0"
 BUILD_DIR="./packages"
 
 echo "Creating packages for PortKill v${VERSION}..."

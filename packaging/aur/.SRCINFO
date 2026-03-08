@@ -1,6 +1,6 @@
 pkgbase = portkill
 	pkgdesc = Advanced port management and network analysis tool with performance benchmarking
-	pkgver = 2.3.1
+	pkgver = 3.1.0
 	pkgrel = 1
 	url = https://github.com/mr-tanta/portkill
 	arch = any
@@ -14,7 +14,7 @@ pkgbase = portkill
 	optdepends = lsof: for detailed process information
 	optdepends = ss: modern socket statistics (part of iproute2)
 	backup = etc/portkill/portkill.conf
-	source = portkill-2.3.1.tar.gz::https://github.com/mr-tanta/portkill/archive/v2.3.1.tar.gz
+	source = portkill-3.1.0.tar.gz::https://github.com/mr-tanta/portkill/archive/v3.1.0.tar.gz
 	sha256sums = d65211fa00e3d9c993b1acbff91d2449afc51f97083f479f4a0840b71ec32f60
 
 pkgname = portkill

@@ -32,10 +32,10 @@ jobs:
           # For manual dispatch, extract from script or use latest tag
           VERSION=$(grep 'readonly VERSION=' bin/portkill | sed 's/.*VERSION="\([^"]*\)".*/\1/')
           if [[ -z "$VERSION" ]]; then
-            VERSION="3.0.0"  # fallback version
+            VERSION="3.1.0"  # fallback version
           fi
         else
-          VERSION="3.0.0"  # fallback version
+          VERSION="3.1.0"  # fallback version
         fi
         VERSION=${VERSION#v}  # Remove 'v' prefix if present
         echo "version=$VERSION" >> $GITHUB_OUTPUT

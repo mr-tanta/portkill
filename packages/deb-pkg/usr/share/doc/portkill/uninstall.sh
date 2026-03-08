@@ -5,7 +5,7 @@
 
 set -e
 
-VERSION="2.0.0"
+VERSION="3.1.0"
 # INSTALL_DIR="/usr/local/bin" # Unused - disabled to avoid ShellCheck warning
 SCRIPT_NAME="portkill"
 

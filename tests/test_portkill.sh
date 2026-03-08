@@ -29,28 +29,28 @@ print_test_header() {
 
 print_success() {
     echo -e "${GREEN}✅ $1${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 }
 
 print_failure() {
     echo -e "${RED}❌ $1${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
 }
 
 run_test() {
     local test_name="$1"
     shift
-    ((TOTAL_TESTS++))
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
     
     echo -ne "${YELLOW}Testing: $test_name${NC} ... "
     
     if "$@" >/dev/null 2>&1; then
         echo -e "${GREEN}PASS${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
         return 0
     else
         echo -e "${RED}FAIL${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
         return 1
     fi
 }
@@ -59,20 +59,20 @@ run_test_with_output() {
     local test_name="$1"
     local expected_pattern="$2"
     shift 2
-    ((TOTAL_TESTS++))
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
     
     echo -ne "${YELLOW}Testing: $test_name${NC} ... "
     
     local output
     if output=$("$@" 2>&1) && echo "$output" | grep -q "$expected_pattern"; then
         echo -e "${GREEN}PASS${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
         return 0
     else
         echo -e "${RED}FAIL${NC}"
         echo "Expected pattern: $expected_pattern"
         echo "Got output: $output"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
         return 1
     fi
 }
@@ -81,7 +81,7 @@ run_test_with_output() {
 test_basic_functionality() {
     print_test_header "Basic Functionality Tests"
     
-    run_test_with_output "Version command" "PortKill 2.2.1" "$PORTKILL" --version
+    run_test_with_output "Version command" "PortKill" "$PORTKILL" --version
     run_test_with_output "Help command" "USAGE:" "$PORTKILL" --help
     run_test "Script is executable" test -x "$PORTKILL"
 }

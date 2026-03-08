@@ -38,7 +38,7 @@ One-line installation for both macOS and Linux:
 curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash
 
 # Install specific version
-curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash -s v2.3.2
+curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash -s v3.1.0
 
 # Install to custom location
 curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash -s - --prefix=/opt/portkill
@@ -104,8 +104,8 @@ paru -S portkill
 ### Ubuntu/Debian (.deb package)
 ```bash
 # Download and install .deb package
-wget https://github.com/mr-tanta/portkill/releases/latest/download/portkill_2.3.2-1_all.deb
-sudo dpkg -i portkill_2.3.2-1_all.deb
+wget https://github.com/mr-tanta/portkill/releases/latest/download/portkill_3.1.0-1_all.deb
+sudo dpkg -i portkill_3.1.0-1_all.deb
 
 # Fix dependencies if needed
 sudo apt-get install -f
@@ -114,11 +114,11 @@ sudo apt-get install -f
 ### Red Hat/CentOS/Fedora (.rpm package)
 ```bash
 # Download and install .rpm package
-wget https://github.com/mr-tanta/portkill/releases/latest/download/portkill-2.3.2-1.noarch.rpm
-sudo rpm -ivh portkill-2.3.2-1.noarch.rpm
+wget https://github.com/mr-tanta/portkill/releases/latest/download/portkill-3.1.0-1.noarch.rpm
+sudo rpm -ivh portkill-3.1.0-1.noarch.rpm
 
 # Or use dnf/yum
-sudo dnf install portkill-2.3.2-1.noarch.rpm
+sudo dnf install portkill-3.1.0-1.noarch.rpm
 ```
 
 ## 🔧 System Requirements
@@ -126,11 +126,15 @@ sudo dnf install portkill-2.3.2-1.noarch.rpm
 ### Required
 - **Shell**: Bash 4.0 or later
 - **OS**: macOS 10.12+, Linux kernel 3.0+, or any Unix-like system
-- **Core utilities**: `lsof`, `ps`, `kill`, `netstat`
+- **Core utilities**: `lsof`, `ps`, `kill`
 
-### Optional
-- **Docker**: For container management features
+### Optional / Recommended
 - **bc**: For advanced benchmarking calculations
+- **netcat**: For port connectivity checks
+- **netstat**: For additional port listing capabilities
+- **ss**: For socket statistics (modern replacement for netstat on Linux)
+- **fuser**: For identifying processes using files or sockets
+- **Docker**: For container management features
 - **curl/wget**: For downloading updates
 
 ### Checking Requirements
@@ -140,10 +144,10 @@ sudo dnf install portkill-2.3.2-1.noarch.rpm
 bash --version
 
 # Check required utilities
-which lsof ps kill netstat
+which lsof ps kill
 
-# Check optional utilities
-which docker bc curl
+# Check optional/recommended utilities
+which bc netcat netstat ss fuser docker curl
 ```
 
 ## - Verification

@@ -5,7 +5,7 @@
 
 set -e
 
-VERSION="2.0.0"
+VERSION="3.1.0"
 REPO_URL="https://github.com/mr-tanta/portkill"
 INSTALL_DIR="/usr/local/bin"
 SCRIPT_NAME="portkill"
@@ -40,7 +40,7 @@ check_os() {
 check_dependencies() {
     local missing_deps=()
     
-    for cmd in lsof ps kill netstat; do
+    for cmd in lsof ps kill; do
         if ! command -v "$cmd" &> /dev/null; then
             missing_deps+=("$cmd")
         fi

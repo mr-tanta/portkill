@@ -78,7 +78,7 @@ Whether you're a developer dealing with stuck development servers, a sysadmin ma
 ## Features
 
 ### Core Port Management
-- **Smart Process Detection**: Multi-layered detection using `lsof`, `netstat`, and `ps` with intelligent fallbacks
+- **Smart Process Detection**: Multi-layered detection using `lsof`, `ss`, `netstat`, `fuser`, and `ps` with intelligent fallbacks
 - **Process Tree Analysis**: Visualize parent-child process relationships with customizable depth
 - **Bulk Port Operations**: Handle multiple ports, port ranges (e.g., `3000-3005`), and complex scenarios
 - **Safe Termination**: SIGTERM by default, SIGKILL option available with `--force`
@@ -173,7 +173,7 @@ One-line installation for both macOS and Linux:
 curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash
 
 # Install specific version
-curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash -s v2.3.2
+curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash -s v3.1.0
 
 # Install to custom location
 curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash -s - --prefix=/opt/portkill
@@ -226,8 +226,8 @@ paru -S portkill
 #### Ubuntu/Debian (.deb package)
 ```bash
 # Download and install .deb package
-wget https://github.com/mr-tanta/portkill/releases/latest/download/portkill_2.3.2-1_all.deb
-sudo dpkg -i portkill_2.3.2-1_all.deb
+wget https://github.com/mr-tanta/portkill/releases/latest/download/portkill_3.1.0-1_all.deb
+sudo dpkg -i portkill_3.1.0-1_all.deb
 
 # Install dependencies if needed
 sudo apt-get install -f
@@ -236,18 +236,18 @@ sudo apt-get install -f
 #### RPM-based Distributions (RHEL/Fedora/SUSE)
 ```bash
 # Download and install RPM package
-wget https://github.com/mr-tanta/portkill/releases/latest/download/portkill-2.3.2-1.noarch.rpm
-sudo rpm -i portkill-2.3.2-1.noarch.rpm
+wget https://github.com/mr-tanta/portkill/releases/latest/download/portkill-3.1.0-1.noarch.rpm
+sudo rpm -i portkill-3.1.0-1.noarch.rpm
 
 # Or using dnf/yum
-sudo dnf install portkill-2.3.2-1.noarch.rpm
+sudo dnf install portkill-3.1.0-1.noarch.rpm
 ```
 
 ### System Requirements
 - **Operating System**: macOS 10.12+ or Linux (kernel 3.10+)
 - **Shell**: Bash 3.2+ or compatible shell (zsh, fish)
-- **Dependencies**: Standard Unix utilities (`lsof`, `ps`, `kill`, `netstat`)
-- **Optional**: `bc` (for advanced calculations), `nc` or `telnet` (for benchmarking)
+- **Dependencies**: Standard Unix utilities (`lsof`, `ps`, `kill`)
+- **Optional**: `netstat`, `ss`, `fuser` (additional process detection methods), `bc` (for advanced calculations), `nc` or `telnet` (for benchmarking)
 
 ## Usage Guide
 
@@ -961,16 +961,23 @@ xattr -d com.apple.quarantine /usr/local/bin/portkill
 
 #### Linux
 ```bash
-# Install dependencies
+# Install required dependencies
 # Ubuntu/Debian
 sudo apt-get update
-sudo apt-get install lsof netstat bc
+sudo apt-get install lsof bc
+
+# Optional: install additional detection tools
+sudo apt-get install net-tools  # netstat
+sudo apt-get install iproute2   # ss (usually pre-installed)
+sudo apt-get install psmisc     # fuser
 
 # CentOS/RHEL
-sudo yum install lsof net-tools bc
+sudo yum install lsof bc
+sudo yum install net-tools      # optional: netstat
 
 # Arch Linux
-sudo pacman -S lsof net-tools bc
+sudo pacman -S lsof bc
+sudo pacman -S net-tools        # optional: netstat
 ```
 
 ## FAQ
@@ -1098,8 +1105,8 @@ Thanks to all the amazing contributors who have helped make PortKill better:
 ### Built With
 
 - **Bash** - Core scripting language
-- **lsof** - Process and port detection
-- **netstat** - Network statistics
+- **lsof** - Primary process and port detection
+- **ss/netstat/fuser** - Optional additional detection methods
 - **nc/netcat** - Network connectivity testing
 - **bc** - Mathematical calculations
 - **GitHub Actions** - CI/CD pipeline

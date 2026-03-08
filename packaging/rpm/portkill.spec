@@ -1,5 +1,5 @@
 Name:           portkill
-Version:        3.0.0
+Version:        3.1.0
 Release:        1%{?dist}
 Summary:        Lightweight, zero-dependency port management tool following Unix philosophy
 License:        MIT
@@ -99,6 +99,14 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Sat Mar 08 2025 mr-tanta <sir.tanta@gmail.com> - 3.1.0-1
+- 20 bug fixes for stability and cross-platform compatibility
+- Added ss fallback for process detection
+- Fixed kill logic with proper SIGTERM to SIGKILL escalation
+- Added --no-color flag and automatic TTY detection
+- Safe config parsing (no longer sources config file)
+- Bash 3.2 compatibility for macOS
+
 * Thu Sep 26 2024 mr-tanta <your-email@example.com> - 3.0.0-1
 - SIMPLIFICATION RELEASE - Back to Unix Roots
 - Zero dependencies: Pure Bash with standard Unix utilities only

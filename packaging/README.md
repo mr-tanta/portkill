@@ -44,7 +44,7 @@ Use the provided build script:
 ./scripts/build-packages.sh --rpm-only
 
 # Build with custom version
-./scripts/build-packages.sh --version 2.3.1
+./scripts/build-packages.sh --version 3.1.0
 ```
 
 ### Prerequisites for Manual Building
