@@ -938,13 +938,11 @@ kill_processes() {
     local pids
     local docker_containers
     local signal_name="SIGTERM"
-    local signal_num=15
     local killed_count=0
     local failed_count=0
-    
+
     if [[ "$force" == "true" ]]; then
         signal_name="SIGKILL"
-        signal_num=9
     fi
     
     # Check for regular processes
@@ -1707,7 +1705,6 @@ benchmark_port() {
                 else
                     # Fallback to integer arithmetic (work in milliseconds)
                     local int_response_time="${response_time%%.*}"
-                    local frac="${response_time#*.}"
                     # Approximate: just use the integer part
                     int_response_time=${int_response_time:-0}
                     total_response_time=$((${total_response_time%%.*} + int_response_time))
