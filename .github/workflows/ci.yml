@@ -10,6 +10,9 @@ on:
 env:
   SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Code Quality & Security
