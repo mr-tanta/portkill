@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2016
 
 # PortKill Test Suite
 # Copyright (c) 2025 Abraham Esandayinze Tanta
