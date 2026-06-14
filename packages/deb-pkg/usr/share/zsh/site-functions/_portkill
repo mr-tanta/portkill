@@ -1,0 +1,27 @@
+#compdef portkill
+
+_portkill() {
+  local -a commands options shells
+  commands=(list kill doctor completion monitor tree scan benchmark history menu)
+  options=(--help --version --verbose --quiet --safe --force --dry-run --interactive --detailed --docker --json --no-color --yes --no-confirm)
+  shells=(bash zsh fish)
+
+  _arguments \
+    '1:command:->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe 'command' commands
+      ;;
+    args)
+      if [[ ${words[2]} == completion ]]; then
+        _describe 'shell' shells
+      else
+        _describe 'option' options
+      fi
+      ;;
+  esac
+}
+
+_portkill "$@"

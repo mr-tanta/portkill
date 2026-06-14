@@ -122,6 +122,12 @@ test_command_options() {
     run_test "Quiet flag" "$PORTKILL" --quiet list 80
     run_test "Detailed flag after list command" "$PORTKILL" list --detailed 65432
     run_test "Dry-run flag after kill command" "$PORTKILL" kill --dry-run 65432
+    run_test "Yes flag after kill command" "$PORTKILL" kill --yes 65432
+    run_test "Doctor alias flag" "$PORTKILL" --doctor
+    run_test_with_output "Doctor command" "PortKill Doctor" "$PORTKILL" doctor
+    run_test_with_output "Bash completion command" "complete -F _portkill" "$PORTKILL" completion bash
+    run_test_with_output "Zsh completion command" "#compdef portkill" "$PORTKILL" completion zsh
+    run_test_with_output "Fish completion command" "complete -c portkill" "$PORTKILL" completion fish
 }
 
 test_multiple_ports() {
@@ -150,6 +156,9 @@ test_error_handling() {
     
     run_test "Unknown flag should fail" bash -c "! $PORTKILL --invalid-flag 2>/dev/null"
     run_test "No arguments defaults to menu" bash -c "$PORTKILL --help | grep -q menu"
+    run_test "Help mentions doctor command" bash -c "$PORTKILL --help | grep -q doctor"
+    run_test "Help mentions completion command" bash -c "$PORTKILL --help | grep -q completion"
+    run_test "Help mentions yes flag" bash -c "$PORTKILL --help | grep -q -- --yes"
 }
 
 test_installation_scripts() {
@@ -282,6 +291,104 @@ EOF
 
         output=$(PATH="$fake_bin:$PATH" HOME="$tmp_home" "$0" --docker --json list 4567)
         printf "%s" "$output" | python3 -c "import json,sys; data=json.load(sys.stdin); proc=data[\"processes\"][0]; assert proc[\"type\"] == \"container\" and proc[\"container_id\"] == \"abc123def456\" and proc[\"name\"] == \"web\""
+    ' "$PORTKILL"
+
+    run_test "Default TTY kill asks before killing" bash -c '
+        set -e
+        tmp_home=$(mktemp -d)
+        fake_bin=$(mktemp -d)
+        killed_marker=$(mktemp)
+        rm -f "$killed_marker"
+        cleanup() {
+            rm -rf "$tmp_home" "$fake_bin"
+            rm -f "$killed_marker"
+        }
+        trap cleanup EXIT
+
+        for cmd in bash awk cat cut date grep mkdir mktemp rm sed sort sleep tr wc; do
+            cmd_path=$(command -v "$cmd")
+            ln -s "$cmd_path" "$fake_bin/$cmd"
+        done
+
+        cat > "$fake_bin/lsof" <<'"'"'EOF'"'"'
+#!/bin/bash
+case "$*" in
+    *"-t"*) echo 4242 ;;
+    *"-a -p 4242 -d cwd -Fn"*) printf "p4242\nn/tmp\n" ;;
+    *) echo "node 4242 user TCP 127.0.0.1:3000 (LISTEN)" ;;
+esac
+EOF
+        chmod +x "$fake_bin/lsof"
+
+        cat > "$fake_bin/ps" <<'"'"'EOF'"'"'
+#!/bin/bash
+case "$*" in
+    *"-o user=,comm="*) echo "user node" ;;
+    *"-o user=,pid=,ppid=,comm="*) echo "user 4242 1 node" ;;
+    *"-o pid=,ppid=,comm="*) echo "4242 1 node" ;;
+    *) exit 0 ;;
+esac
+EOF
+        chmod +x "$fake_bin/ps"
+
+        cat > "$fake_bin/kill" <<EOF
+#!/bin/bash
+echo killed >> "$killed_marker"
+exit 0
+EOF
+        chmod +x "$fake_bin/kill"
+
+        output=$(printf "n\n" | PATH="$fake_bin" HOME="$tmp_home" PORTKILL_ASSUME_TTY=true "$0" 3000 2>&1)
+        echo "$output" | grep -q "Kill process"
+        echo "$output" | grep -q "Skipped PID 4242"
+        test ! -e "$killed_marker"
+    ' "$PORTKILL"
+
+    run_test "Doctor identifies package project hints" bash -c '
+        set -e
+        tmp_home=$(mktemp -d)
+        tmp_project=$(mktemp -d)
+        fake_bin=$(mktemp -d)
+        cleanup() {
+            rm -rf "$tmp_home" "$tmp_project" "$fake_bin"
+        }
+        trap cleanup EXIT
+
+        printf "{\"scripts\":{\"dev\":\"vite --host 0.0.0.0\"}}\n" > "$tmp_project/package.json"
+        touch "$tmp_project/vite.config.ts"
+
+        for cmd in bash awk cat cut date dirname grep head mkdir mktemp pwd rm sed sort tr wc; do
+            cmd_path=$(command -v "$cmd")
+            ln -s "$cmd_path" "$fake_bin/$cmd"
+        done
+
+        cat > "$fake_bin/lsof" <<EOF
+#!/bin/bash
+case "\$*" in
+    *"-t"*) echo 4242 ;;
+    *"-a -p 4242 -d cwd -Fn"*) printf "p4242\\nn$tmp_project\\n" ;;
+    *) echo "node 4242 user TCP 127.0.0.1:5173 (LISTEN)" ;;
+esac
+EOF
+        chmod +x "$fake_bin/lsof"
+
+        cat > "$fake_bin/ps" <<'"'"'EOF'"'"'
+#!/bin/bash
+case "$*" in
+    *"-o user=,comm="*) echo "user node" ;;
+    *"-o user=,pid=,ppid=,comm="*) echo "user 4242 1 node" ;;
+    *"-o pid=,ppid=,comm="*) echo "4242 1 node" ;;
+    *"-o command="*) echo "node vite --host 0.0.0.0" ;;
+    *) exit 0 ;;
+esac
+EOF
+        chmod +x "$fake_bin/ps"
+
+        output=$(PATH="$fake_bin" HOME="$tmp_home" "$0" doctor 5173)
+        echo "$output" | grep -q "Port 5173"
+        echo "$output" | grep -q "Project:"
+        echo "$output" | grep -q "Vite"
+        echo "$output" | grep -q "Suggestion:"
     ' "$PORTKILL"
 }
 

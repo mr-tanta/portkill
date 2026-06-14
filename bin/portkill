@@ -61,6 +61,7 @@ DOCKER_MODE=false
 JSON_OUTPUT=false
 FORCE_MODE=false
 DRY_RUN_MODE=false
+YES_MODE=false
 DETAILED_MODE=false
 TREE_DEPTH=""
 SECURITY_SCAN=false
@@ -410,6 +411,17 @@ get_service_name() {
     esac
 }
 
+is_interactive_terminal() {
+    [[ -t 0 && -t 1 ]] || [[ "${PORTKILL_ASSUME_TTY:-false}" == "true" ]]
+}
+
+should_confirm_default_kill() {
+    [[ "$DRY_RUN_MODE" != "true" ]] || return 1
+    [[ "$YES_MODE" != "true" ]] || return 1
+    [[ "$AUTO_CONFIRM" != "true" ]] || return 1
+    is_interactive_terminal
+}
+
 # =============================================================================
 # 4. DOCKER INTEGRATION
 # =============================================================================
@@ -556,6 +568,167 @@ get_process_cmdline() {
         tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null
     else
         ps -p "$pid" -o args= 2>/dev/null || echo "N/A"
+    fi
+}
+
+get_process_cwd() {
+    local pid="$1"
+
+    if [[ -L "/proc/$pid/cwd" ]] && command -v readlink &> /dev/null; then
+        readlink "/proc/$pid/cwd" 2>/dev/null && return 0
+    fi
+
+    if command -v pwdx &> /dev/null; then
+        pwdx "$pid" 2>/dev/null | sed 's/^[^:]*:[[:space:]]*//' && return 0
+    fi
+
+    if command -v lsof &> /dev/null; then
+        lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1
+    fi
+}
+
+detect_framework_hint() {
+    local cwd="$1"
+    local cmdline="$2"
+
+    if [[ "$cmdline" == *vite* || -f "$cwd/vite.config.js" || -f "$cwd/vite.config.ts" ]]; then
+        echo "Vite dev server"
+    elif [[ "$cmdline" == *next* || -f "$cwd/next.config.js" || -f "$cwd/next.config.mjs" || -f "$cwd/next.config.ts" ]]; then
+        echo "Next.js app"
+    elif [[ -f "$cwd/package.json" ]]; then
+        echo "Node.js project"
+    elif [[ -f "$cwd/docker-compose.yml" || -f "$cwd/compose.yml" || -f "$cwd/Dockerfile" ]]; then
+        echo "Docker project"
+    elif [[ -f "$cwd/Gemfile" ]]; then
+        echo "Ruby project"
+    elif [[ -f "$cwd/Cargo.toml" ]]; then
+        echo "Rust project"
+    elif [[ -f "$cwd/go.mod" ]]; then
+        echo "Go project"
+    elif [[ -f "$cwd/pyproject.toml" || -f "$cwd/requirements.txt" ]]; then
+        echo "Python project"
+    else
+        echo "Unknown project type"
+    fi
+}
+
+show_doctor() {
+    show_section_header "PortKill Doctor"
+
+    echo -e "${BOLD}Runtime${NC}"
+    echo "  Version: $VERSION"
+    echo "  Bash: ${BASH_VERSION%%.*}.${BASH_VERSION#*.}"
+    echo "  Config: $CONFIG_FILE"
+    echo
+
+    echo -e "${BOLD}Required commands${NC}"
+    for cmd in ps kill; do
+        if command -v "$cmd" &> /dev/null; then
+            print_colored "$GREEN" "[✓]" "$cmd available"
+        else
+            print_colored "$RED" "[!]" "$cmd missing"
+        fi
+    done
+    echo
+
+    echo -e "${BOLD}Port detectors${NC}"
+    local detector_found=false
+    for cmd in lsof ss netstat fuser; do
+        if command -v "$cmd" &> /dev/null; then
+            detector_found=true
+            print_colored "$GREEN" "[✓]" "$cmd available"
+        else
+            print_colored "$GRAY" "[-]" "$cmd not found"
+        fi
+    done
+    if [[ "$detector_found" != "true" ]]; then
+        print_colored "$RED" "[!]" "Install lsof, ss, netstat, or fuser before using PortKill"
+    fi
+    echo
+
+    echo -e "${BOLD}Optional integrations${NC}"
+    if check_docker_available; then
+        print_colored "$GREEN" "[✓]" "Docker available"
+    elif command -v docker &> /dev/null; then
+        print_colored "$YELLOW" "[!]" "Docker CLI found, but Docker is not running or not accessible"
+    else
+        print_colored "$GRAY" "[-]" "Docker not found"
+    fi
+
+    if command -v bc &> /dev/null; then
+        print_colored "$GREEN" "[✓]" "bc available for benchmark calculations"
+    else
+        print_colored "$GRAY" "[-]" "bc not found; benchmark calculations use fallbacks"
+    fi
+
+    echo
+    print_colored "$BLUE" "[i]" "Run 'portkill doctor 3000' to inspect a specific port"
+}
+
+show_port_doctor() {
+    local port="$1"
+    local pids
+    local docker_containers
+
+    show_section_header "PortKill Doctor: Port $port"
+
+    pids=$(find_processes_on_port "$port" 2>/dev/null || true)
+    docker_containers=$(get_docker_container_info "$port" 2>/dev/null || true)
+
+    if [[ -z "$pids" && -z "$docker_containers" ]]; then
+        print_colored "$GREEN" "[✓]" "Port $port is free"
+        print_colored "$BLUE" "[i]" "If an app still reports EADDRINUSE, restart the app or check IPv6/UDP listeners"
+        return 0
+    fi
+
+    local service_name; service_name=$(get_service_name "$port")
+    if [[ -n "$service_name" ]]; then
+        print_colored "$BLUE" "[>]" "Port $port ($service_name) is in use"
+    else
+        print_colored "$BLUE" "[>]" "Port $port is in use"
+    fi
+    echo
+
+    if [[ -n "$pids" ]]; then
+        while read -r pid; do
+            if [[ -n "$pid" && "$pid" =~ ^[0-9]+$ ]]; then
+                local info user command cmdline cwd framework
+                info=$(get_process_info "$pid")
+                user=$(echo "$info" | awk '{print $1}')
+                command=$(echo "$info" | awk '{for(i=2;i<=NF;i++) printf "%s ", $i; print ""}' | sed 's/ $//')
+                cmdline=$(get_process_cmdline "$pid")
+                cwd=$(get_process_cwd "$pid")
+                [[ -n "$cwd" ]] || cwd="Unknown"
+                framework=$(detect_framework_hint "$cwd" "$cmdline")
+
+                echo -e "${BOLD}Process${NC}"
+                echo "  PID: $pid"
+                echo "  User: $user"
+                echo "  Command: $command"
+                echo "  Project: $cwd"
+                echo "  Hint: $framework"
+                if is_protected_process "$command"; then
+                    print_colored "$YELLOW" "[!]" "Protected process; safe mode will skip it"
+                fi
+                echo "  Suggestion: portkill --dry-run $port"
+                echo "  Automation: portkill kill --yes $port"
+                echo
+            fi
+        done <<< "$pids"
+    fi
+
+    if [[ -n "$docker_containers" ]]; then
+        while IFS='|' read -r container_id container_name ports; do
+            if [[ -n "$container_id" ]]; then
+                echo -e "${BOLD}Docker container${NC}"
+                echo "  ID: $container_id"
+                echo "  Name: $container_name"
+                echo "  Ports: $ports"
+                echo "  Suggestion: portkill --docker --dry-run $port"
+                echo "  Automation: portkill --docker kill --yes $port"
+                echo
+            fi
+        done <<< "$docker_containers"
     fi
 }
 
@@ -1042,7 +1215,7 @@ kill_processes() {
             
             if [[ "$interactive" == "true" && "$AUTO_CONFIRM" != "true" ]]; then
                 echo -ne "${WHITE}Kill process ${YELLOW}$pid${WHITE} (${CYAN}$command${WHITE}) with ${RED}$signal_name${WHITE}? (y/N/q): ${NC}"
-                read -r response
+                read -r response || response=""
                 case "$response" in
                     [Yy]) ;;
                     [Qq]) print_colored "$GRAY" "[i]" "Operation cancelled"; return 0 ;;
@@ -1097,7 +1270,7 @@ kill_processes() {
             if [[ -n "$container_id" ]]; then
                 if [[ "$interactive" == "true" && "$AUTO_CONFIRM" != "true" ]]; then
                     echo -ne "${WHITE}Kill Docker container ${YELLOW}$container_name${WHITE} (${CYAN}$container_id${WHITE}) with ${RED}$([ "$force" == "true" ] && echo "FORCE KILL" || echo "STOP")${WHITE}? (y/N/q): ${NC}"
-                    read -r response
+                    read -r response || response=""
                     case "$response" in
                         [Yy]) ;;
                         [Qq]) print_colored "$GRAY" "[i]" "Operation cancelled"; return 0 ;;
@@ -1158,6 +1331,8 @@ kill_processes() {
             print_colored "$RED" "[!]" "Failed to process $failed_count $process_text"
         fi
     fi
+
+    return 0
 }
 
 bulk_kill_ports() {
@@ -1904,6 +2079,8 @@ show_help() {
     echo "COMMANDS:"
     echo "  list     [-d] <port>           List processes on port(s)"
     echo "  kill     [-f] [-n] <port>      Kill processes on port(s)"
+    echo "  doctor   [port]                Check setup or diagnose a busy port"
+    echo "  completion <bash|zsh|fish>     Generate shell completion script"
     echo "  monitor  <ports>               Real-time monitoring"
     echo "  tree     [--depth N] <port>    Show process tree hierarchy"
     echo "  scan     [--security]          Scan ports or security"
@@ -1919,6 +2096,7 @@ show_help() {
     echo "      --no-color        Disable colored output"
     echo "  -n, --dry-run         Show what would be done without doing it"
     echo "  -i, --interactive     Interactive confirmation for each process"
+    echo "  -y, --yes, --no-confirm Skip confirmation prompts"
     echo "  -v, --verbose         Verbose output with logging"
     echo "  -q, --quiet           Suppress headers and decorative output"
     echo "  -s, --safe            Safe mode (protect system processes)"
@@ -1932,6 +2110,8 @@ show_help() {
     echo "  $0 -f 3000                    # Force kill processes on port 3000"
     echo "  $0 -i 8080                    # Interactive kill for port 8080"
     echo "  $0 list 3000                  # List processes on port 3000"
+    echo "  $0 doctor 3000                # Diagnose what owns port 3000"
+    echo "  $0 completion zsh             # Generate zsh completions"
     echo "  $0 tree 3000                  # Show process tree for port 3000"
     echo "  $0 tree --depth 3 8080        # Show process tree with max depth 3"
     echo "  $0 monitor 3000 8080          # Monitor ports in real-time"
@@ -1947,6 +2127,7 @@ show_help() {
     echo "NOTES:"
     echo "  Supports lsof, ss, netstat, and fuser for process detection"
     echo "  Safe mode is enabled by default (protects system processes)"
+    echo "  Default TTY kills ask before terminating; use --yes for automation"
     echo "  History is stored in ~/.portkill/"
 }
 
@@ -1956,11 +2137,115 @@ show_version() {
     echo "Licensed under MIT License"
 }
 
+show_completion() {
+    local shell_name="${1:-}"
+
+    case "$shell_name" in
+        bash)
+            cat <<'EOF'
+_portkill() {
+    local cur prev commands options
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    commands="list kill doctor completion monitor tree scan benchmark history menu"
+    options="--help --version --verbose --quiet --safe --force --dry-run --interactive --detailed --docker --json --no-color --yes --no-confirm"
+
+    if [[ "$prev" == "completion" ]]; then
+        COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") )
+        return 0
+    fi
+
+    if [[ "$cur" == -* ]]; then
+        COMPREPLY=( $(compgen -W "$options" -- "$cur") )
+        return 0
+    fi
+
+    COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
+}
+complete -F _portkill portkill
+EOF
+            ;;
+        zsh)
+            cat <<'EOF'
+#compdef portkill
+
+_portkill() {
+  local -a commands options shells
+  commands=(list kill doctor completion monitor tree scan benchmark history menu)
+  options=(--help --version --verbose --quiet --safe --force --dry-run --interactive --detailed --docker --json --no-color --yes --no-confirm)
+  shells=(bash zsh fish)
+
+  _arguments \
+    '1:command:->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe 'command' commands
+      ;;
+    args)
+      if [[ ${words[2]} == completion ]]; then
+        _describe 'shell' shells
+      else
+        _describe 'option' options
+      fi
+      ;;
+  esac
+}
+
+_portkill "$@"
+EOF
+            ;;
+        fish)
+            cat <<'EOF'
+complete -c portkill -f
+complete -c portkill -n '__fish_use_subcommand' -a 'list kill doctor completion monitor tree scan benchmark history menu'
+complete -c portkill -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish'
+complete -c portkill -l help -d 'Show help'
+complete -c portkill -l version -d 'Show version'
+complete -c portkill -l verbose -d 'Verbose output'
+complete -c portkill -l quiet -d 'Quiet output'
+complete -c portkill -l safe -d 'Protect system processes'
+complete -c portkill -l force -s f -d 'Use SIGKILL'
+complete -c portkill -l dry-run -s n -d 'Preview without killing'
+complete -c portkill -l interactive -s i -d 'Ask before each kill'
+complete -c portkill -l detailed -s d -d 'Show detailed output'
+complete -c portkill -l docker -d 'Include Docker containers'
+complete -c portkill -l json -d 'Output JSON'
+complete -c portkill -l no-color -d 'Disable colors'
+complete -c portkill -l yes -s y -d 'Skip confirmation'
+complete -c portkill -l no-confirm -d 'Skip confirmation'
+EOF
+            ;;
+        *)
+            print_colored "$RED" "[!]" "Usage: portkill completion <bash|zsh|fish>"
+            return 1
+            ;;
+    esac
+}
+
 # =============================================================================
 # 9. CLI PARSER
 # =============================================================================
 
 main() {
+    case "${1:-}" in
+        --help|-h)
+            show_help
+            exit 0
+            ;;
+        --version)
+            show_version
+            exit 0
+            ;;
+        completion)
+            shift
+            show_completion "${1:-}"
+            exit $?
+            ;;
+    esac
+
     init_config
     log_message "INFO" "PortKill $VERSION started"
     
@@ -1996,6 +2281,11 @@ main() {
                 ;;
             --dry-run|-n)
                 DRY_RUN_MODE=true
+                shift
+                ;;
+            --yes|-y|--no-confirm)
+                YES_MODE=true
+                AUTO_CONFIRM=true
                 shift
                 ;;
             --interactive|-i)
@@ -2049,7 +2339,12 @@ main() {
                 done
                 break
                 ;;
-            list|kill|monitor|menu)
+            --doctor)
+                command="doctor"
+                shift
+                break
+                ;;
+            list|kill|doctor|completion|monitor|menu)
                 command="$1"
                 shift
                 break
@@ -2127,7 +2422,12 @@ main() {
     done
     
     # Handle remaining arguments differently based on command
-    if [[ "$command" == "benchmark" ]]; then
+    if [[ "$command" == "completion" ]]; then
+        while [[ $# -gt 0 ]]; do
+            ports+=("$1")
+            shift
+        done
+    elif [[ "$command" == "benchmark" ]]; then
         # For benchmark: port [host] [count]
         while [[ $# -gt 0 ]]; do
             if [[ ${#ports[@]} -eq 0 ]]; then
@@ -2168,6 +2468,11 @@ main() {
                     ;;
                 --dry-run|-n)
                     DRY_RUN_MODE=true
+                    shift
+                    ;;
+                --yes|-y|--no-confirm)
+                    YES_MODE=true
+                    AUTO_CONFIRM=true
                     shift
                     ;;
                 --interactive|-i)
@@ -2240,6 +2545,22 @@ main() {
             else
                 kill_processes "${ports[0]}" "${FORCE_MODE:-false}" "${DRY_RUN_MODE:-false}" "${INTERACTIVE_MODE:-false}"
             fi
+            ;;
+        doctor)
+            if [[ ${#ports[@]} -eq 0 ]]; then
+                show_doctor
+            else
+                for port in "${ports[@]}"; do
+                    show_port_doctor "$port"
+                done
+            fi
+            ;;
+        completion)
+            if [[ ${#ports[@]} -eq 0 ]]; then
+                print_colored "$RED" "[!]" "No shell specified for completion command"
+                exit 1
+            fi
+            show_completion "${ports[0]}"
             ;;
         monitor)
             if [[ ${#ports[@]} -eq 0 ]]; then
@@ -2315,10 +2636,17 @@ main() {
         "")
             if [[ ${#ports[@]} -gt 0 ]]; then
                 # Default behavior: kill processes on specified ports
+                local default_interactive="${INTERACTIVE_MODE:-false}"
+                if should_confirm_default_kill; then
+                    default_interactive=true
+                fi
                 if [[ ${#ports[@]} -gt 1 ]]; then
+                    local previous_interactive="$INTERACTIVE_MODE"
+                    INTERACTIVE_MODE="$default_interactive"
                     bulk_kill_ports "${ports[@]}"
+                    INTERACTIVE_MODE="$previous_interactive"
                 else
-                    kill_processes "${ports[0]}" "${FORCE_MODE:-false}" "${DRY_RUN_MODE:-false}" "${INTERACTIVE_MODE:-false}"
+                    kill_processes "${ports[0]}" "${FORCE_MODE:-false}" "${DRY_RUN_MODE:-false}" "$default_interactive"
                 fi
             else
                 INTERACTIVE_MODE=true
@@ -2406,5 +2734,11 @@ if [[ "$OSTYPE" != "darwin"* ]] && [[ "$OSTYPE" != "linux"* ]]; then
 fi
 
 setup_signal_handlers
-check_dependencies
+case "${1:-}" in
+    --help|-h|--version|completion|doctor|--doctor)
+        ;;
+    *)
+        check_dependencies
+        ;;
+esac
 main "$@"

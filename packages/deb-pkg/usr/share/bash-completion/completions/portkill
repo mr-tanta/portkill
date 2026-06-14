@@ -1,0 +1,21 @@
+_portkill() {
+    local cur prev commands options
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    commands="list kill doctor completion monitor tree scan benchmark history menu"
+    options="--help --version --verbose --quiet --safe --force --dry-run --interactive --detailed --docker --json --no-color --yes --no-confirm"
+
+    if [[ "$prev" == "completion" ]]; then
+        COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") )
+        return 0
+    fi
+
+    if [[ "$cur" == -* ]]; then
+        COMPREPLY=( $(compgen -W "$options" -- "$cur") )
+        return 0
+    fi
+
+    COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
+}
+complete -F _portkill portkill

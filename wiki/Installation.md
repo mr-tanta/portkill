@@ -120,4 +120,17 @@ portkill --version
 portkill --help
 portkill list
 portkill --dry-run 3000
+portkill doctor
+```
+
+## Shell Completions
+
+Debian/RPM and AUR packages install shell completions automatically. Homebrew users can generate completions with the commands below until the next formula update installs them directly.
+
+Manual completion generation:
+
+```bash
+portkill completion bash
+portkill completion zsh
+portkill completion fish
 ```
