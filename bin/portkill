@@ -24,7 +24,7 @@ set -e
 
 # Script metadata
 readonly SCRIPT_NAME="PortKill"
-readonly VERSION="3.1.1"
+readonly VERSION="3.2.0"
 readonly AUTHOR="Abraham Esandayinze Tanta"
 readonly CONFIG_DIR="$HOME/.portkill"
 readonly LOG_FILE="$CONFIG_DIR/portkill.log"
@@ -71,6 +71,8 @@ HISTORY_EXPORT=false
 HISTORY_EXPORT_FORMAT=""
 HISTORY_CLEAR=false
 HISTORY_KEEP=""
+PRESET_NAME=""
+CACHE_ACTION=""
 
 # Protected system processes
 declare -a PROTECTED_PROCESSES=("launchd" "kernel_task" "systemstats" "sshd" "WindowServer" "loginwindow")
@@ -612,6 +614,166 @@ detect_framework_hint() {
     fi
 }
 
+get_preset_ports() {
+    local preset="$1"
+
+    case "$preset" in
+        node)
+            echo "3000 3001 3002 4173 4200 4321 5000 5173 5174 8000 8080"
+            ;;
+        web)
+            echo "80 443 3000 3001 4200 4321 5000 5173 8000 8080 8443"
+            ;;
+        db)
+            echo "3306 5432 6379 9200 9300 11211 27017"
+            ;;
+        full)
+            echo "80 443 3000 3001 3002 3306 4173 4200 4321 5000 5173 5174 5432 6379 8000 8080 8443 9000 9200 9300 11211 27017"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+get_preset_description() {
+    local preset="$1"
+
+    case "$preset" in
+        node) echo "Node.js, Vite, Next.js, React, and local API dev ports" ;;
+        web) echo "Common web, app server, and reverse-proxy ports" ;;
+        db) echo "Common database, cache, and search service ports" ;;
+        full) echo "Union of common web, Node.js, database, cache, and search ports" ;;
+        *) return 1 ;;
+    esac
+}
+
+show_presets() {
+    show_section_header "PortKill Presets"
+
+    for preset in node web db full; do
+        echo -e "${BOLD}$preset${NC}"
+        echo "  $(get_preset_description "$preset")"
+        echo "  Ports: $(get_preset_ports "$preset")"
+        echo
+    done
+
+    print_colored "$BLUE" "[i]" "Use 'portkill --preset node' to inspect a preset, or 'portkill --preset node kill --dry-run' before killing."
+}
+
+apply_preset() {
+    local preset="$1"
+
+    if ! get_preset_ports "$preset"; then
+        print_colored "$RED" "[!]" "Unknown preset: $preset"
+        print_colored "$BLUE" "[i]" "Available presets: node, web, db, full"
+        return 1
+    fi
+}
+
+show_preset_intro() {
+    local preset="$1"
+
+    echo "Preset: $preset"
+    echo "Description: $(get_preset_description "$preset")"
+    echo "Ports: $(get_preset_ports "$preset")"
+    echo
+}
+
+infer_restart_command() {
+    local cwd="$1"
+    local cmdline="$2"
+    local port="$3"
+
+    if [[ -n "$cmdline" && "$cmdline" != "N/A" ]]; then
+        echo "$cmdline"
+        return 0
+    fi
+
+    if [[ -f "$cwd/package.json" ]]; then
+        if grep -Eq '"dev"[[:space:]]*:' "$cwd/package.json"; then
+            echo "npm run dev"
+        elif grep -Eq '"start"[[:space:]]*:' "$cwd/package.json"; then
+            echo "npm run start"
+        else
+            echo "npm run <script>"
+        fi
+    elif [[ -f "$cwd/docker-compose.yml" || -f "$cwd/compose.yml" ]]; then
+        echo "docker compose up"
+    elif [[ -f "$cwd/Gemfile" ]]; then
+        echo "bundle exec rails server -p $port"
+    elif [[ -f "$cwd/Cargo.toml" ]]; then
+        echo "cargo run"
+    elif [[ -f "$cwd/go.mod" ]]; then
+        echo "go run ."
+    elif [[ -f "$cwd/manage.py" ]]; then
+        echo "python manage.py runserver 0.0.0.0:$port"
+    elif [[ -f "$cwd/app.py" ]]; then
+        echo "python app.py"
+    elif [[ -f "$cwd/pyproject.toml" || -f "$cwd/requirements.txt" ]]; then
+        echo "python <app-entrypoint>.py"
+    else
+        echo "Unknown; inspect the command line before restarting"
+    fi
+}
+
+path_size() {
+    local path="$1"
+    local size_kb
+
+    size_kb=$(du -sk "$path" 2>/dev/null | awk '{print $1}')
+    [[ -n "$size_kb" ]] || size_kb=0
+
+    if [[ "$size_kb" -ge 1048576 ]]; then
+        awk -v kb="$size_kb" 'BEGIN { printf "%.1f GB", kb / 1048576 }'
+    elif [[ "$size_kb" -ge 1024 ]]; then
+        awk -v kb="$size_kb" 'BEGIN { printf "%.1f MB", kb / 1024 }'
+    else
+        echo "${size_kb} KB"
+    fi
+}
+
+show_cache_doctor() {
+    show_section_header "PortKill Cache Doctor"
+
+    print_colored "$BLUE" "[i]" "Read-only diagnostics. No files are removed."
+    echo
+
+    echo -e "${BOLD}Project caches in $(pwd)${NC}"
+    local project_patterns=("node_modules" ".next" ".nuxt" ".vite" ".turbo" "dist" "build" "target" "__pycache__" ".pytest_cache" ".venv" ".gradle")
+    local found_project=false
+    local path
+
+    for path in "${project_patterns[@]}"; do
+        if [[ -e "$path" ]]; then
+            found_project=true
+            printf "  %-18s %s\n" "$path" "$(path_size "$path")"
+        fi
+    done
+    if [[ "$found_project" != "true" ]]; then
+        print_colored "$GREEN" "[✓]" "No common project cache directories found"
+    fi
+
+    echo
+    echo -e "${BOLD}User-level dev caches${NC}"
+    local home_patterns=("$HOME/.npm" "$HOME/.cache/pip" "$HOME/.cargo/registry" "$HOME/.cache/huggingface" "$HOME/.cache/torch")
+    local found_home=false
+
+    for path in "${home_patterns[@]}"; do
+        if [[ -e "$path" ]]; then
+            found_home=true
+            printf "  %-35s %s\n" "$path" "$(path_size "$path")"
+        fi
+    done
+    if [[ "$found_home" != "true" ]]; then
+        print_colored "$GREEN" "[✓]" "No common user-level dev caches found"
+    fi
+
+    echo
+    print_colored "$BLUE" "[i]" "Use your package manager's native clean command when you decide to remove caches."
+    print_colored "$BLUE" "[i]" "PortKill intentionally reports cache state first; cleanup automation can be added later behind dry-run and confirmation gates."
+}
+
 show_doctor() {
     show_section_header "PortKill Doctor"
 
@@ -701,17 +863,30 @@ show_port_doctor() {
                 [[ -n "$cwd" ]] || cwd="Unknown"
                 framework=$(detect_framework_hint "$cwd" "$cmdline")
 
-                echo -e "${BOLD}Process${NC}"
+                local likely_command
+                likely_command=$(infer_restart_command "$cwd" "$cmdline" "$port")
+
+                echo -e "${BOLD}What owns this port${NC}"
                 echo "  PID: $pid"
                 echo "  User: $user"
                 echo "  Command: $command"
                 echo "  Project: $cwd"
-                echo "  Hint: $framework"
+                echo "  Framework hint: $framework"
+                echo "  Likely start command: $likely_command"
                 if is_protected_process "$command"; then
                     print_colored "$YELLOW" "[!]" "Protected process; safe mode will skip it"
                 fi
-                echo "  Suggestion: portkill --dry-run $port"
-                echo "  Automation: portkill kill --yes $port"
+                echo
+                echo -e "${BOLD}Next command:${NC}"
+                echo "  portkill --dry-run $port"
+                echo "  portkill kill --yes $port"
+                echo
+                echo -e "${BOLD}Restart guidance:${NC}"
+                if [[ "$cwd" != "Unknown" ]]; then
+                    echo "  cd \"$cwd\""
+                fi
+                echo "  $likely_command"
+                echo "  PortKill does not auto-run restart commands."
                 echo
             fi
         done <<< "$pids"
@@ -2080,6 +2255,7 @@ show_help() {
     echo "  list     [-d] <port>           List processes on port(s)"
     echo "  kill     [-f] [-n] <port>      Kill processes on port(s)"
     echo "  doctor   [port]                Check setup or diagnose a busy port"
+    echo "  cache    doctor                Read-only development cache diagnostics"
     echo "  completion <bash|zsh|fish>     Generate shell completion script"
     echo "  monitor  <ports>               Real-time monitoring"
     echo "  tree     [--depth N] <port>    Show process tree hierarchy"
@@ -2093,6 +2269,8 @@ show_help() {
     echo "  -d, --detailed        Show detailed process information"
     echo "      --docker          Include Docker container management"
     echo "      --json            Output results in JSON format"
+    echo "      --preset <name>   Use preset ports: node, web, db, full"
+    echo "      --list-presets    Show available preset port groups"
     echo "      --no-color        Disable colored output"
     echo "  -n, --dry-run         Show what would be done without doing it"
     echo "  -i, --interactive     Interactive confirmation for each process"
@@ -2111,6 +2289,9 @@ show_help() {
     echo "  $0 -i 8080                    # Interactive kill for port 8080"
     echo "  $0 list 3000                  # List processes on port 3000"
     echo "  $0 doctor 3000                # Diagnose what owns port 3000"
+    echo "  $0 cache doctor               # Inspect common development caches"
+    echo "  $0 --preset node              # Inspect common Node.js dev ports"
+    echo "  $0 --preset db kill --dry-run # Preview database/cache port cleanup"
     echo "  $0 completion zsh             # Generate zsh completions"
     echo "  $0 tree 3000                  # Show process tree for port 3000"
     echo "  $0 tree --depth 3 8080        # Show process tree with max depth 3"
@@ -2128,6 +2309,7 @@ show_help() {
     echo "  Supports lsof, ss, netstat, and fuser for process detection"
     echo "  Safe mode is enabled by default (protects system processes)"
     echo "  Default TTY kills ask before terminating; use --yes for automation"
+    echo "  Presets default to inspection when no command is provided"
     echo "  History is stored in ~/.portkill/"
 }
 
@@ -2148,8 +2330,8 @@ _portkill() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    commands="list kill doctor completion monitor tree scan benchmark history menu"
-    options="--help --version --verbose --quiet --safe --force --dry-run --interactive --detailed --docker --json --no-color --yes --no-confirm"
+    commands="list kill doctor cache completion monitor tree scan benchmark history menu"
+    options="--help --version --verbose --quiet --safe --force --dry-run --interactive --detailed --docker --json --preset --list-presets --no-color --yes --no-confirm"
 
     if [[ "$prev" == "completion" ]]; then
         COMPREPLY=( $(compgen -W "bash zsh fish" -- "$cur") )
@@ -2172,8 +2354,8 @@ EOF
 
 _portkill() {
   local -a commands options shells
-  commands=(list kill doctor completion monitor tree scan benchmark history menu)
-  options=(--help --version --verbose --quiet --safe --force --dry-run --interactive --detailed --docker --json --no-color --yes --no-confirm)
+  commands=(list kill doctor cache completion monitor tree scan benchmark history menu)
+  options=(--help --version --verbose --quiet --safe --force --dry-run --interactive --detailed --docker --json --preset --list-presets --no-color --yes --no-confirm)
   shells=(bash zsh fish)
 
   _arguments \
@@ -2200,7 +2382,7 @@ EOF
         fish)
             cat <<'EOF'
 complete -c portkill -f
-complete -c portkill -n '__fish_use_subcommand' -a 'list kill doctor completion monitor tree scan benchmark history menu'
+complete -c portkill -n '__fish_use_subcommand' -a 'list kill doctor cache completion monitor tree scan benchmark history menu'
 complete -c portkill -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish'
 complete -c portkill -l help -d 'Show help'
 complete -c portkill -l version -d 'Show version'
@@ -2213,6 +2395,8 @@ complete -c portkill -l interactive -s i -d 'Ask before each kill'
 complete -c portkill -l detailed -s d -d 'Show detailed output'
 complete -c portkill -l docker -d 'Include Docker containers'
 complete -c portkill -l json -d 'Output JSON'
+complete -c portkill -l preset -d 'Use preset ports'
+complete -c portkill -l list-presets -d 'Show preset port groups'
 complete -c portkill -l no-color -d 'Disable colors'
 complete -c portkill -l yes -s y -d 'Skip confirmation'
 complete -c portkill -l no-confirm -d 'Skip confirmation'
@@ -2237,6 +2421,11 @@ main() {
             ;;
         --version)
             show_version
+            exit 0
+            ;;
+        --list-presets)
+            init_config
+            show_presets
             exit 0
             ;;
         completion)
@@ -2304,6 +2493,24 @@ main() {
                 JSON_OUTPUT=true
                 shift
                 ;;
+            --preset)
+                shift
+                if [[ $# -eq 0 ]]; then
+                    print_colored "$RED" "[!]" "--preset requires one of: node, web, db, full"
+                    exit 1
+                fi
+                PRESET_NAME="$1"
+                if ! get_preset_ports "$PRESET_NAME" >/dev/null; then
+                    print_colored "$RED" "[!]" "Unknown preset: $PRESET_NAME"
+                    print_colored "$BLUE" "[i]" "Available presets: node, web, db, full"
+                    exit 1
+                fi
+                shift
+                ;;
+            --list-presets)
+                show_presets
+                exit 0
+                ;;
             --no-color)
                 RED='' GREEN='' YELLOW='' BLUE='' CYAN='' WHITE='' GRAY='' NC='' BOLD=''
                 shift
@@ -2345,6 +2552,11 @@ main() {
                 break
                 ;;
             list|kill|doctor|completion|monitor|menu)
+                command="$1"
+                shift
+                break
+                ;;
+            cache)
                 command="$1"
                 shift
                 break
@@ -2427,6 +2639,32 @@ main() {
             ports+=("$1")
             shift
         done
+    elif [[ "$command" == "cache" ]]; then
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                doctor)
+                    CACHE_ACTION="doctor"
+                    shift
+                    ;;
+                --json)
+                    JSON_OUTPUT=true
+                    shift
+                    ;;
+                --no-color)
+                    RED='' GREEN='' YELLOW='' BLUE='' CYAN='' WHITE='' GRAY='' NC='' BOLD=''
+                    shift
+                    ;;
+                --*)
+                    print_colored "$RED" "[!]" "Unknown cache option: $1"
+                    exit 1
+                    ;;
+                *)
+                    print_colored "$RED" "[!]" "Unknown cache action: $1"
+                    print_colored "$BLUE" "[i]" "Usage: portkill cache doctor"
+                    exit 1
+                    ;;
+            esac
+        done
     elif [[ "$command" == "benchmark" ]]; then
         # For benchmark: port [host] [count]
         while [[ $# -gt 0 ]]; do
@@ -2491,6 +2729,24 @@ main() {
                     JSON_OUTPUT=true
                     shift
                     ;;
+                --preset)
+                    shift
+                    if [[ $# -eq 0 ]]; then
+                        print_colored "$RED" "[!]" "--preset requires one of: node, web, db, full"
+                        exit 1
+                    fi
+                    PRESET_NAME="$1"
+                    if ! get_preset_ports "$PRESET_NAME" >/dev/null; then
+                        print_colored "$RED" "[!]" "Unknown preset: $PRESET_NAME"
+                        print_colored "$BLUE" "[i]" "Available presets: node, web, db, full"
+                        exit 1
+                    fi
+                    shift
+                    ;;
+                --list-presets)
+                    show_presets
+                    exit 0
+                    ;;
                 --no-color)
                     RED='' GREEN='' YELLOW='' BLUE='' CYAN='' WHITE='' GRAY='' NC='' BOLD=''
                     shift
@@ -2522,9 +2778,23 @@ main() {
             esac
         done
     fi
+
+    if [[ -n "$PRESET_NAME" ]]; then
+        local preset_ports
+        local preset_port_array
+        preset_ports=$(apply_preset "$PRESET_NAME") || exit 1
+        read -ra preset_port_array <<< "$preset_ports"
+        ports+=("${preset_port_array[@]}")
+        if [[ -z "$command" ]]; then
+            command="list"
+        fi
+    fi
     
     case "$command" in
         list)
+            if [[ -n "$PRESET_NAME" && "$JSON_OUTPUT" != "true" ]]; then
+                show_preset_intro "$PRESET_NAME"
+            fi
             if [[ ${#ports[@]} -eq 0 ]]; then
                 list_all_listening_ports
             else
@@ -2554,6 +2824,18 @@ main() {
                     show_port_doctor "$port"
                 done
             fi
+            ;;
+        cache)
+            case "${CACHE_ACTION:-doctor}" in
+                doctor)
+                    show_cache_doctor
+                    ;;
+                *)
+                    print_colored "$RED" "[!]" "Unknown cache action: $CACHE_ACTION"
+                    print_colored "$BLUE" "[i]" "Usage: portkill cache doctor"
+                    exit 1
+                    ;;
+            esac
             ;;
         completion)
             if [[ ${#ports[@]} -eq 0 ]]; then
@@ -2735,7 +3017,7 @@ fi
 
 setup_signal_handlers
 case "${1:-}" in
-    --help|-h|--version|completion|doctor|--doctor)
+    --help|-h|--version|completion|doctor|--doctor|cache|--list-presets)
         ;;
     *)
         check_dependencies

@@ -5,6 +5,17 @@ All notable changes to PortKill will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2026-06-14
+
+### Added
+- Preset port groups with `--preset node`, `--preset web`, `--preset db`, `--preset full`, and `--list-presets`.
+- Read-only `portkill cache doctor` diagnostics for common project and user-level development cache directories.
+- Richer `portkill doctor <port>` output with likely start command detection, exact next commands, and manual restart guidance.
+- README comparison against `port-kill`, `kill-port`, and `fkill`, plus a note to keep any future Windows support PowerShell-native rather than bloating the Bash CLI.
+
+### Changed
+- Preset invocations default to inspection when no command is supplied, so `portkill --preset node` lists matching ports instead of killing them.
+
 ## [3.1.1] - 2026-06-14
 
 ### Fixed

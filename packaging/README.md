@@ -14,13 +14,13 @@ This directory contains packaging metadata for AUR, Debian, and RPM-based distri
 
 - Directory: `debian/`
 - Files: `DEBIAN/control`, `DEBIAN/postinst`, `DEBIAN/prerm`
-- Install: `sudo dpkg -i portkill_3.1.1-1_all.deb`
+- Install: `sudo dpkg -i portkill_3.2.0-1_all.deb`
 
 ### RPM-based (.rpm)
 
 - Directory: `rpm/`
 - Files: `portkill.spec`
-- Install: `sudo rpm -i portkill-3.1.1-1.noarch.rpm`
+- Install: `sudo rpm -i portkill-3.2.0-1.noarch.rpm`
 
 ## Build Packages
 
@@ -33,7 +33,7 @@ This directory contains packaging metadata for AUR, Debian, and RPM-based distri
 ./scripts/build-packages.sh --rpm-only
 
 # Override version
-./scripts/build-packages.sh --version 3.1.1
+./scripts/build-packages.sh --version 3.2.0
 ```
 
 Manual build dependencies:

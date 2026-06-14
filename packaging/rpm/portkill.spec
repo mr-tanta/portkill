@@ -1,5 +1,5 @@
 Name:           portkill
-Version:        3.1.1
+Version:        3.2.0
 Release:        1%{?dist}
 Summary:        Lightweight, zero-dependency port management tool following Unix philosophy
 License:        MIT
@@ -110,6 +110,11 @@ echo "Documentation: %{_docdir}/%{name}/"
 :
 
 %changelog
+* Sun Jun 14 2026 mr-tanta <sir.tanta@gmail.com> - 3.2.0-1
+- Added preset port groups for Node.js, web, database/cache, and full-stack checks
+- Added read-only cache doctor diagnostics
+- Improved port doctor with restart guidance and exact next commands
+
 * Sun Jun 14 2026 mr-tanta <sir.tanta@gmail.com> - 3.1.1-1
 - Fixed exact port matching to avoid false positives across similar port numbers
 - Fixed JSON history export and Docker JSON container records
