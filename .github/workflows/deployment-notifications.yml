@@ -208,7 +208,7 @@ jobs:
                     },
                     {
                       "title": "Installation Command",
-                      "value": "`brew tap mr-tanta/portkill && brew install portkill`",
+                      "value": "`brew install mr-tanta/portkill/portkill`",
                       "short": false
                     },
                     {

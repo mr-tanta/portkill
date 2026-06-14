@@ -27,7 +27,14 @@ PortKill is a Bash CLI for finding and terminating processes that bind local por
 ### Homebrew
 
 ```bash
+brew install mr-tanta/portkill/portkill
+```
+
+Homebrew 6.0+ requires third-party tap trust before short-name installs. If you have already tapped the repository and want to install or upgrade with `portkill`, trust only the PortKill formula first:
+
+```bash
 brew tap mr-tanta/portkill
+brew trust --formula mr-tanta/portkill/portkill
 brew install portkill
 ```
 
