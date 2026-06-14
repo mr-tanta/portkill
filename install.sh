@@ -5,7 +5,7 @@
 
 set -e
 
-VERSION="3.1.1"
+VERSION="3.2.0"
 REPO_URL="https://github.com/mr-tanta/portkill"
 PREFIX="/usr/local"
 INSTALL_DIR="$PREFIX/bin"
@@ -37,7 +37,7 @@ show_usage() {
 Usage: install.sh [VERSION] [OPTIONS]
 
 Arguments:
-  VERSION              Version tag to install (for example: v3.1.1 or 3.1.1)
+  VERSION              Version tag to install (for example: v3.2.0 or 3.2.0)
 
 Options:
   --prefix=PATH        Install under PATH/bin (default: /usr/local)

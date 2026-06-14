@@ -125,6 +125,10 @@ test_command_options() {
     run_test "Yes flag after kill command" "$PORTKILL" kill --yes 65432
     run_test "Doctor alias flag" "$PORTKILL" --doctor
     run_test_with_output "Doctor command" "PortKill Doctor" "$PORTKILL" doctor
+    run_test_with_output "Preset listing" "node" "$PORTKILL" --list-presets
+    run_test_with_output "Node preset defaults to inspection" "Preset: node" "$PORTKILL" --preset node --quiet
+    run_test_with_output "Node preset works with list command" "Preset: node" "$PORTKILL" --preset node list --quiet
+    run_test_with_output "Cache doctor command" "PortKill Cache Doctor" "$PORTKILL" cache doctor
     run_test_with_output "Bash completion command" "complete -F _portkill" "$PORTKILL" completion bash
     run_test_with_output "Zsh completion command" "#compdef portkill" "$PORTKILL" completion zsh
     run_test_with_output "Fish completion command" "complete -c portkill" "$PORTKILL" completion fish
@@ -388,7 +392,29 @@ EOF
         echo "$output" | grep -q "Port 5173"
         echo "$output" | grep -q "Project:"
         echo "$output" | grep -q "Vite"
-        echo "$output" | grep -q "Suggestion:"
+        echo "$output" | grep -q "Likely start command:"
+        echo "$output" | grep -q "Next command:"
+        echo "$output" | grep -q "Restart guidance:"
+    ' "$PORTKILL"
+
+    run_test "Cache doctor reports project caches without deleting them" bash -c '
+        set -e
+        tmp_home=$(mktemp -d)
+        tmp_project=$(mktemp -d)
+        cleanup() {
+            rm -rf "$tmp_home" "$tmp_project"
+        }
+        trap cleanup EXIT
+
+        mkdir -p "$tmp_project/.next" "$tmp_project/node_modules" "$tmp_project/__pycache__"
+        cd "$tmp_project"
+        output=$(HOME="$tmp_home" "$0" cache doctor)
+        echo "$output" | grep -q "PortKill Cache Doctor"
+        echo "$output" | grep -q ".next"
+        echo "$output" | grep -q "node_modules"
+        echo "$output" | grep -q "Read-only"
+        test -d "$tmp_project/.next"
+        test -d "$tmp_project/node_modules"
     ' "$PORTKILL"
 }
 

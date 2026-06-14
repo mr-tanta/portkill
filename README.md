@@ -22,6 +22,8 @@ No npm, Python, Rust, Go, daemon, or background service required. PortKill is a 
 - Docker container detection and stop/kill support with `--docker`
 - JSON output for automation
 - Project-aware `doctor` command for dependency checks, framework hints, and safe next steps
+- Preset port groups for Node.js, web, database/cache, and full dev-stack checks
+- Read-only `cache doctor` diagnostics for common development cache directories
 - Bash, Zsh, and Fish completion generation
 - Process tree view, real-time monitoring, history, and CSV/JSON exports
 - Basic connection benchmarking for local and remote hosts
@@ -58,7 +60,7 @@ paru -S portkill
 curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash
 
 # Specific release
-curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash -s v3.1.1
+curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash -s v3.2.0
 
 # Custom prefix, installs to /opt/portkill/bin/portkill
 curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash -s -- --prefix=/opt/portkill
@@ -131,6 +133,34 @@ portkill list
 portkill tree --depth 5 3000
 ```
 
+### Presets
+
+Presets expand to common development port groups. With no explicit command, a preset defaults to inspection instead of killing.
+
+```bash
+# Show available presets
+portkill --list-presets
+
+# Inspect common Node.js/Vite/Next.js ports
+portkill --preset node
+
+# Inspect common web ports
+portkill --preset web list
+
+# Preview cleanup for database/cache ports
+portkill --preset db kill --dry-run
+
+# Inspect a broader local development stack
+portkill --preset full
+```
+
+Available presets:
+
+- `node`: Node.js, Vite, Next.js, React, and local API dev ports
+- `web`: common web, app server, and reverse-proxy ports
+- `db`: MySQL, PostgreSQL, Redis, Elasticsearch, Memcached, and MongoDB ports
+- `full`: common web, Node.js, database, cache, and search ports
+
 ### Docker
 
 ```bash
@@ -179,7 +209,23 @@ portkill doctor 3000
 portkill --doctor
 ```
 
-`doctor` reports the owning PID, user, command, detected working directory when available, likely project type such as Vite, Next.js, Docker, Ruby, Rust, Go, or Python, and the safest follow-up command.
+`doctor` is the recommended first command when a framework reports a port conflict. It reports the owning PID, user, command, detected working directory when available, likely project type such as Vite, Next.js, Docker, Ruby, Rust, Go, or Python, and the safest follow-up command.
+
+For busy ports, `doctor` also prints restart guidance:
+
+- likely start command, inferred from the live command line or project files
+- project directory to return to after cleanup
+- exact next PortKill commands for dry-run and trusted automation
+
+PortKill does not auto-run restart commands. Restart guidance is intentionally manual until restart automation can be added with strong confirmation and security controls.
+
+### Cache Diagnostics
+
+```bash
+portkill cache doctor
+```
+
+`cache doctor` is read-only. It reports common project caches such as `node_modules`, `.next`, `.vite`, `.turbo`, `target`, `__pycache__`, and `.gradle`, plus common user-level dev caches such as npm, pip, Cargo, Hugging Face, and PyTorch caches when present. It does not delete files.
 
 ### Shell Completions
 
@@ -217,17 +263,18 @@ portkill --docker --dry-run 8080
 portkill --docker kill --yes 8080
 ```
 
-## Why PortKill Instead Of Common Alternatives?
+## PortKill vs Alternatives
 
-```bash
-npx kill-port 3000          # requires Node/npm
-fkill :3000                 # general process killer
-portkill doctor 3000        # explains the owner and project context
-portkill --dry-run 3000     # safe preview
-portkill --docker 8080      # process and container-aware
-```
+| Tool | Best For | Tradeoff |
+| --- | --- | --- |
+| `portkill` | Unix-native port diagnosis and cleanup with `doctor`, Docker awareness, presets, package-manager installs, and no runtime dependency | macOS/Linux focused |
+| `port-kill` | Broad Rust-based workstation management with GUI/status bar, Windows support, orchestration, cache cleanup, and service lifecycle features | Larger trust and maintenance surface |
+| `kill-port` | Quick Node/npm-based port cleanup | Requires Node/npm and gives less project context |
+| `fkill` | General process killing by name, PID, or port-like input | Broader process killer, less focused on port ownership and Docker workflows |
 
 PortKill focuses on exact port ownership, safe termination, Docker awareness, package-manager installs, and zero runtime dependency overhead.
+
+Windows support should be a separate PowerShell-native track if it is added later. The Bash CLI stays focused on macOS and Linux instead of carrying Windows-specific branching.
 
 ## Configuration
 
