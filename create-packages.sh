@@ -26,6 +26,10 @@ cp "../bin/portkill" "deb-pkg/usr/bin/portkill"
 cp "../portkill.conf" "deb-pkg/etc/portkill/portkill.conf"
 cp "../README.md" "../CONTRIBUTING.md" "../LICENSE" "deb-pkg/usr/share/doc/portkill/"
 cp "../install.sh" "../uninstall.sh" "deb-pkg/usr/share/doc/portkill/"
+if [[ -f "../assets/portkill-preview.gif" ]]; then
+    mkdir -p "deb-pkg/usr/share/doc/portkill/assets"
+    cp "../assets/portkill-preview.gif" "deb-pkg/usr/share/doc/portkill/assets/"
+fi
 cp "../packaging/debian/DEBIAN/control" "deb-pkg/DEBIAN/"
 cp "../packaging/debian/DEBIAN/postinst" "deb-pkg/DEBIAN/"
 cp "../packaging/debian/DEBIAN/prerm" "deb-pkg/DEBIAN/"

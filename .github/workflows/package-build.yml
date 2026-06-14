@@ -67,6 +67,10 @@ jobs:
         cp portkill.conf portkill-deb/etc/portkill/portkill.conf
         cp README.md CONTRIBUTING.md LICENSE portkill-deb/usr/share/doc/portkill/
         cp install.sh uninstall.sh portkill-deb/usr/share/doc/portkill/
+        if [[ -f assets/portkill-preview.gif ]]; then
+          mkdir -p portkill-deb/usr/share/doc/portkill/assets
+          cp assets/portkill-preview.gif portkill-deb/usr/share/doc/portkill/assets/
+        fi
         
         # Copy control files
         mkdir -p portkill-deb/DEBIAN
@@ -95,6 +99,10 @@ jobs:
         # Create source tarball with name expected by spec file
         mkdir -p portkill-${VERSION}
         cp -r bin portkill.conf README.md CONTRIBUTING.md LICENSE install.sh uninstall.sh portkill-${VERSION}/
+        if [[ -f assets/portkill-preview.gif ]]; then
+          mkdir -p portkill-${VERSION}/assets
+          cp assets/portkill-preview.gif portkill-${VERSION}/assets/
+        fi
         tar -czf ~/rpmbuild/SOURCES/v${VERSION}.tar.gz portkill-${VERSION}
         
         # Copy and update spec file

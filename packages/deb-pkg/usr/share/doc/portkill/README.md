@@ -7,6 +7,10 @@
 
 PortKill is a Bash CLI for finding and terminating processes that bind local ports. It is built for developer workstations, servers, and container-heavy local environments where port conflicts need to be resolved quickly and safely.
 
+<p align="center">
+  <img src="assets/portkill-preview.gif" alt="Animated PortKill preview showing list, dry-run, Docker, and JSON workflows" width="860">
+</p>
+
 ## Features
 
 - Exact process detection for listening TCP ports and bound UDP ports

@@ -138,6 +138,10 @@ jobs:
           mkdir -p dist/portkill-${{ github.sha }}
           cp -r bin/ dist/portkill-${{ github.sha }}/
           cp install.sh uninstall.sh README.md LICENSE dist/portkill-${{ github.sha }}/
+          if [[ -f assets/portkill-preview.gif ]]; then
+            mkdir -p dist/portkill-${{ github.sha }}/assets
+            cp assets/portkill-preview.gif dist/portkill-${{ github.sha }}/assets/
+          fi
           
           cd dist
           tar -czf portkill-${{ github.sha }}.tar.gz portkill-${{ github.sha }}/

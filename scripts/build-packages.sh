@@ -90,6 +90,10 @@ build_deb() {
     cp "$PROJECT_DIR/LICENSE" "$deb_dir/usr/share/doc/portkill/"
     cp "$PROJECT_DIR/install.sh" "$deb_dir/usr/share/doc/portkill/"
     cp "$PROJECT_DIR/uninstall.sh" "$deb_dir/usr/share/doc/portkill/"
+    if [[ -f "$PROJECT_DIR/assets/portkill-preview.gif" ]]; then
+        mkdir -p "$deb_dir/usr/share/doc/portkill/assets"
+        cp "$PROJECT_DIR/assets/portkill-preview.gif" "$deb_dir/usr/share/doc/portkill/assets/"
+    fi
     
     # Copy control files
     cp "$PROJECT_DIR/packaging/debian/DEBIAN/"* "$deb_dir/DEBIAN/"
@@ -125,6 +129,10 @@ build_rpm() {
     cp -r "$PROJECT_DIR/bin" "$PROJECT_DIR/portkill.conf" "$PROJECT_DIR/README.md" \
           "$PROJECT_DIR/CONTRIBUTING.md" "$PROJECT_DIR/LICENSE" \
           "$PROJECT_DIR/install.sh" "$PROJECT_DIR/uninstall.sh" "$src_dir/"
+    if [[ -f "$PROJECT_DIR/assets/portkill-preview.gif" ]]; then
+        mkdir -p "$src_dir/assets"
+        cp "$PROJECT_DIR/assets/portkill-preview.gif" "$src_dir/assets/"
+    fi
     
     tar -czf "$rpm_root/SOURCES/v${version}.tar.gz" -C "$BUILD_DIR" "portkill-${version}"
     

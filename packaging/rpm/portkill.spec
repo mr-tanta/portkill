@@ -63,6 +63,10 @@ install -m 644 portkill.conf $RPM_BUILD_ROOT%{_sysconfdir}/portkill/portkill.con
 install -m 644 README.md $RPM_BUILD_ROOT%{_docdir}/%{name}/README.md
 install -m 644 CONTRIBUTING.md $RPM_BUILD_ROOT%{_docdir}/%{name}/CONTRIBUTING.md
 install -m 644 LICENSE $RPM_BUILD_ROOT%{_docdir}/%{name}/LICENSE
+if [ -f assets/portkill-preview.gif ]; then
+    mkdir -p $RPM_BUILD_ROOT%{_docdir}/%{name}/assets
+    install -m 644 assets/portkill-preview.gif $RPM_BUILD_ROOT%{_docdir}/%{name}/assets/portkill-preview.gif
+fi
 
 # Install scripts as documentation
 install -m 644 install.sh $RPM_BUILD_ROOT%{_docdir}/%{name}/install.sh
@@ -75,6 +79,8 @@ install -m 644 uninstall.sh $RPM_BUILD_ROOT%{_docdir}/%{name}/uninstall.sh
 %{_docdir}/%{name}/README.md
 %{_docdir}/%{name}/CONTRIBUTING.md
 %{_docdir}/%{name}/LICENSE
+%dir %{_docdir}/%{name}/assets
+%{_docdir}/%{name}/assets/portkill-preview.gif
 %{_docdir}/%{name}/install.sh
 %{_docdir}/%{name}/uninstall.sh
 

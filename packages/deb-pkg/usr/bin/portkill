@@ -478,9 +478,6 @@ kill_docker_container_by_port() {
     return 0
 }
 
-LSOF_CACHE=""
-LSOF_CACHE_TIME=0
-
 find_processes_on_port() {
     local port="$1"
     local pids=""
