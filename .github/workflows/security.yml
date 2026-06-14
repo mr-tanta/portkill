@@ -27,7 +27,7 @@ jobs:
         uses: ludeeus/action-shellcheck@master
         with:
           scandir: './bin'
-          additional_files: 'install.sh uninstall.sh tests/test_portkill.sh'
+          additional_files: 'install.sh uninstall.sh tests/test_portkill.sh tests/test_workflows.sh'
           severity: warning
           format: gcc
 

@@ -28,12 +28,13 @@ uninstall:
 # Development targets
 setup-dev:
 	@echo "Setting up development environment..."
-	@chmod +x bin/portkill install.sh uninstall.sh tests/test_portkill.sh
+	@chmod +x bin/portkill install.sh uninstall.sh tests/test_portkill.sh tests/test_workflows.sh
 	@echo "✅ Development environment ready"
 
 test:
 	@echo "Running PortKill test suite..."
 	@./tests/test_portkill.sh
+	@./tests/test_workflows.sh
 
 test-quick:
 	@echo "Running quick functionality tests..."
@@ -44,7 +45,7 @@ test-quick:
 lint:
 	@echo "Running code quality checks..."
 	@command -v shellcheck >/dev/null 2>&1 || (echo "⚠️  ShellCheck not installed" && exit 1)
-	@shellcheck bin/portkill install.sh uninstall.sh tests/test_portkill.sh
+	@shellcheck bin/portkill install.sh uninstall.sh tests/test_portkill.sh tests/test_workflows.sh
 	@echo "✅ Linting completed"
 
 security:

@@ -100,6 +100,8 @@ jobs:
           echo "Testing installation scripts syntax..."
           bash -n install.sh || exit 1
           bash -n uninstall.sh || exit 1
+          bash -n tests/test_workflows.sh || exit 1
+          bash tests/test_workflows.sh || exit 1
           echo "✅ Installation scripts syntax valid"
 
   security-scan:
