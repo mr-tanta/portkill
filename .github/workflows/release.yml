@@ -103,8 +103,7 @@ jobs:
             
             ### 📦 Installation
             ```bash
-            brew tap mr-tanta/portkill
-            brew install portkill
+            brew install mr-tanta/portkill/portkill
             ```
             
             ### 🔧 Usage
