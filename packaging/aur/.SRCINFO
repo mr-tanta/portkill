@@ -17,6 +17,6 @@ pkgbase = portkill
 	optdepends = docker: for Docker container management
 	backup = etc/portkill/portkill.conf
 	source = portkill-3.1.1.tar.gz::https://github.com/mr-tanta/portkill/archive/v3.1.1.tar.gz
-	sha256sums = f16e6e27aea630b245f1fdddfd45b6c2421f1c4e4c8d2801f63d3053b4835075
+	sha256sums = 4be05f61748ad93db87640183013dca7825f07cfabb125a6d654074b4d67ee80
 
 pkgname = portkill
