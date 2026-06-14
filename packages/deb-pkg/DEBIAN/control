@@ -1,12 +1,12 @@
 Package: portkill
-Version: 3.1.0-1
+Version: 3.1.1-1
 Section: utils
 Priority: optional
 Architecture: all
 Essential: no
-Depends: bash (>= 4.0), coreutils, util-linux, procps
-Recommends: bc, netcat-openbsd | netcat-traditional, lsof, iproute2
-Maintainer: mr-tanta <your-email@example.com>
+Depends: bash (>= 3.2), coreutils, procps, iproute2 | lsof | net-tools | psmisc
+Recommends: bc, netcat-openbsd | netcat-traditional, lsof, psmisc
+Maintainer: mr-tanta <sir.tanta@gmail.com>
 Homepage: https://github.com/mr-tanta/portkill
 Description: Advanced port management and network analysis tool
  PortKill is a powerful command-line utility for managing network ports and

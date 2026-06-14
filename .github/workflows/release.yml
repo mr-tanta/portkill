@@ -8,10 +8,10 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., v3.1.0)'
+        description: 'Release version (e.g., v3.1.1)'
         required: true
         type: string
-        default: 'v3.1.0'
+        default: 'v3.1.1'
       dry_run:
         description: 'Dry run (test without creating release)'
         required: false
@@ -81,6 +81,16 @@ jobs:
           ./bin/portkill --help >/dev/null
           echo "✅ Tests passed"
 
+      - name: 🏗️ Install Package Build Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev fakeroot rpm
+
+      - name: 📦 Build Release Packages
+        run: |
+          chmod +x scripts/build-packages.sh
+          ./scripts/build-packages.sh --version "${{ steps.version.outputs.version_number }}"
+
       - name: 📦 Create GitHub Release
         if: github.event.inputs.dry_run != 'true'
         uses: softprops/action-gh-release@v2
@@ -107,6 +117,10 @@ jobs:
             bin/portkill
             install.sh
             uninstall.sh
+            build/*.deb
+            build/*.rpm
+            build/*.sha256
+            build/checksums.txt
 
       - name: 🎉 Success Message
         run: |

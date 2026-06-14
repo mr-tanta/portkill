@@ -5,9 +5,11 @@
 
 set -e
 
-VERSION="3.1.0"
+VERSION="3.1.1"
 # INSTALL_DIR="/usr/local/bin" # Unused - disabled to avoid ShellCheck warning
 SCRIPT_NAME="portkill"
+REMOVE_CONFIG=false
+TARGET_PATH=""
 
 # Color definitions
 RED='\033[0;31m'
@@ -29,13 +31,74 @@ print_header() {
     echo >&2
 }
 
+show_usage() {
+    cat << EOF
+Usage: uninstall.sh [OPTIONS]
+
+Options:
+  --remove-config      Remove ~/.portkill after uninstalling the binary
+  --path PATH          Remove PortKill at an explicit binary path
+  --prefix PATH        Remove PATH/bin/portkill
+  --help, -h           Show this help
+EOF
+}
+
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --remove-config)
+                REMOVE_CONFIG=true
+                shift
+                ;;
+            --path)
+                shift
+                if [[ $# -eq 0 || -z "$1" ]]; then
+                    print_colored "$RED" "Error: --path requires a file path"
+                    exit 1
+                fi
+                TARGET_PATH="$1"
+                shift
+                ;;
+            --prefix)
+                shift
+                if [[ $# -eq 0 || -z "$1" ]]; then
+                    print_colored "$RED" "Error: --prefix requires a path"
+                    exit 1
+                fi
+                TARGET_PATH="$1/bin/$SCRIPT_NAME"
+                shift
+                ;;
+            --help|-h)
+                show_usage
+                exit 0
+                ;;
+            *)
+                print_colored "$RED" "Error: Unknown argument: $1"
+                show_usage
+                exit 1
+                ;;
+        esac
+    done
+}
+
 check_installation() {
+    if [[ -n "$TARGET_PATH" ]]; then
+        if [[ -f "$TARGET_PATH" ]]; then
+            print_colored "$BLUE" "Found PortKill installation at: $TARGET_PATH"
+            echo "$TARGET_PATH"
+            return 0
+        fi
+
+        print_colored "$YELLOW" "PortKill installation not found at: $TARGET_PATH"
+        exit 0
+    fi
+
     if ! command -v "$SCRIPT_NAME" &> /dev/null; then
         print_colored "$YELLOW" "PortKill is not installed or not in PATH"
         exit 0
     fi
     
-    local install_path; install_path=$(which "$SCRIPT_NAME" 2>/dev/null)
+    local install_path; install_path=$(command -v "$SCRIPT_NAME" 2>/dev/null)
     if [[ -z "$install_path" ]]; then
         print_colored "$YELLOW" "PortKill installation not found"
         exit 0
@@ -95,6 +158,19 @@ verify_removal() {
     fi
 }
 
+remove_config() {
+    if [[ "$REMOVE_CONFIG" != "true" ]]; then
+        return 0
+    fi
+
+    if [[ -d "$HOME/.portkill" ]]; then
+        rm -rf "$HOME/.portkill"
+        print_colored "$GREEN" "Removed configuration directory: $HOME/.portkill"
+    else
+        print_colored "$YELLOW" "No configuration directory found at: $HOME/.portkill"
+    fi
+}
+
 cleanup_message() {
     echo >&2
     print_colored "$BLUE" "Cleanup complete!"
@@ -106,6 +182,7 @@ cleanup_message() {
 }
 
 main() {
+    parse_args "$@"
     print_header
     
     # Check if PortKill is installed
@@ -119,6 +196,9 @@ main() {
     
     # Verify removal
     verify_removal
+
+    # Optional user configuration cleanup
+    remove_config
     
     # Show cleanup message
     cleanup_message

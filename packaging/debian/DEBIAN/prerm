@@ -2,9 +2,6 @@
 
 set -e
 
-echo "Removing PortKill..."
-
-# Stop any running portkill processes
-pkill -f "portkill" 2>/dev/null || true
+echo "Removing PortKill package files..."
 
 exit 0

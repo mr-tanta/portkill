@@ -39,7 +39,7 @@ get_version() {
     elif git describe --tags HEAD 2>/dev/null; then
         git describe --tags HEAD | sed 's/^v//' | sed 's/-.*$//'
     else
-        echo "3.1.0"
+        echo "3.1.1"
     fi
 }
 
@@ -126,7 +126,7 @@ build_rpm() {
           "$PROJECT_DIR/CONTRIBUTING.md" "$PROJECT_DIR/LICENSE" \
           "$PROJECT_DIR/install.sh" "$PROJECT_DIR/uninstall.sh" "$src_dir/"
     
-    tar -czf "$rpm_root/SOURCES/portkill-${version}.tar.gz" -C "$BUILD_DIR" "portkill-${version}"
+    tar -czf "$rpm_root/SOURCES/v${version}.tar.gz" -C "$BUILD_DIR" "portkill-${version}"
     
     # Copy and update spec file
     cp "$PROJECT_DIR/packaging/rpm/portkill.spec" "$rpm_root/SPECS/"

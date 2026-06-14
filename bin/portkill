@@ -24,13 +24,14 @@ set -e
 
 # Script metadata
 readonly SCRIPT_NAME="PortKill"
-readonly VERSION="3.1.0"
+readonly VERSION="3.1.1"
 readonly AUTHOR="Abraham Esandayinze Tanta"
 readonly CONFIG_DIR="$HOME/.portkill"
 readonly LOG_FILE="$CONFIG_DIR/portkill.log"
 readonly HISTORY_FILE="$CONFIG_DIR/history.log"
 readonly WHITELIST_FILE="$CONFIG_DIR/whitelist.conf"
 readonly CONFIG_FILE="$CONFIG_DIR/config.conf"
+readonly SYSTEM_CONFIG_FILE="/etc/portkill/portkill.conf"
 
 # Color definitions for output
 RED='\033[0;31m'
@@ -74,6 +75,47 @@ HISTORY_KEEP=""
 declare -a PROTECTED_PROCESSES=("launchd" "kernel_task" "systemstats" "sshd" "WindowServer" "loginwindow")
 
 # Initialize configuration
+apply_config_value() {
+    local key="$1"
+    local value="$2"
+
+    key=$(echo "$key" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+    value=$(echo "$value" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"//' -e 's/"$//')
+
+    case "$key" in
+        safe_mode) SAFE_MODE="$value" ;;
+        auto_confirm) AUTO_CONFIRM="$value" ;;
+        verbose_mode|verbose_default) VERBOSE_MODE="$value" ;;
+        monitoring_interval|monitor_refresh_interval) MONITORING_INTERVAL="$value" ;;
+        max_history_entries|history_limit) HISTORY_LIMIT="$value" ;;
+        color_output|enable_colors)
+            if [[ "$value" == "false" ]]; then
+                RED='' GREEN='' YELLOW='' BLUE='' CYAN='' WHITE='' GRAY='' NC='' BOLD=''
+            fi
+            ;;
+        show_process_tree|enable_logging|log_level|log_dir|default_signal|history_file|\
+        default_benchmark_tests|default_benchmark_concurrent|default_benchmark_timeout|\
+        progress_style|enable_performance_mode|process_cache_ttl|network_timeout|\
+        dns_timeout|default_export_format|export_dir|debug_mode|interactive_timeout|\
+        max_tree_depth|pre_execution_hook|post_execution_hook|enable_system_integration|\
+        enable_notifications|protected_processes|confirmation_timeout|log_retention_days|\
+        max_log_size)
+            ;; # accepted for packaged config compatibility
+    esac
+}
+
+load_config_file() {
+    local file="$1"
+
+    [[ -r "$file" ]] || return 0
+
+    while IFS='=' read -r key value; do
+        [[ "$key" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "$key" ]] && continue
+        apply_config_value "$key" "$value"
+    done < "$file"
+}
+
 init_config() {
     # Ensure config directory exists
     mkdir -p "$CONFIG_DIR"
@@ -107,26 +149,9 @@ SystemUIServer
 EOF
     fi
     
-    # Safely parse config file (key=value format only)
-    if [[ -f "$CONFIG_FILE" ]]; then
-        while IFS='=' read -r key value; do
-            # Skip comments and empty lines
-            [[ "$key" =~ ^[[:space:]]*# ]] && continue
-            [[ -z "$key" ]] && continue
-            # Trim whitespace
-            key=$(echo "$key" | tr -d '[:space:]')
-            value=$(echo "$value" | tr -d '[:space:]')
-            case "$key" in
-                safe_mode) SAFE_MODE="$value" ;;
-                auto_confirm) AUTO_CONFIRM="$value" ;;
-                verbose_mode) VERBOSE_MODE="$value" ;;
-                monitoring_interval) MONITORING_INTERVAL="$value" ;;
-                max_history_entries) HISTORY_LIMIT="$value" ;;
-                color_output) ;; # handled separately
-                show_process_tree) ;; # handled separately
-            esac
-        done < "$CONFIG_FILE"
-    fi
+    # System defaults are loaded first; user config overrides them.
+    load_config_file "$SYSTEM_CONFIG_FILE"
+    load_config_file "$CONFIG_FILE"
     
     if [[ -f "$WHITELIST_FILE" ]]; then
         while IFS= read -r line; do
@@ -240,6 +265,7 @@ json_escape() {
 output_simple_json() {
     local port="$1"
     local pids="$2"
+    local docker_containers="${3:-}"
 
     if [[ "$JSON_OUTPUT" != "true" ]]; then
         return
@@ -264,12 +290,31 @@ output_simple_json() {
                 local command="${info#* }"
 
                 echo "    {"
+                echo "      \"type\": \"process\","
                 echo "      \"pid\": $pid,"
                 echo "      \"user\": \"$(json_escape "$user")\","
                 echo "      \"command\": \"$(json_escape "$command")\""
                 echo -n "    }"
             fi
         done <<< "$pids"
+    fi
+
+    if [[ -n "$docker_containers" ]]; then
+        while IFS='|' read -r container_id container_name ports; do
+            if [[ -n "$container_id" ]]; then
+                if [[ "$first" != "true" ]]; then
+                    echo "    ,"
+                fi
+                first=false
+
+                echo "    {"
+                echo "      \"type\": \"container\","
+                echo "      \"container_id\": \"$(json_escape "$container_id")\","
+                echo "      \"name\": \"$(json_escape "$container_name")\","
+                echo "      \"ports\": \"$(json_escape "$ports")\""
+                echo -n "    }"
+            fi
+        done <<< "$docker_containers"
     fi
 
     echo ""
@@ -290,6 +335,17 @@ validate_port() {
         return 1
     fi
     
+    return 0
+}
+
+validate_host() {
+    local host="$1"
+
+    if [[ -z "$host" || "$host" == -* || ! "$host" =~ ^[A-Za-z0-9_.:][A-Za-z0-9._:-]*$ ]]; then
+        print_colored "$RED" "[!]" "Invalid host '$host'"
+        return 1
+    fi
+
     return 0
 }
 
@@ -369,12 +425,13 @@ get_docker_container_info() {
         return 1
     fi
     
-    # Get containers with port mappings
-    docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Ports}}" 2>/dev/null | \
-    grep ":$port->" | \
-    while IFS=$'\t' read -r container_id container_name ports; do
-        echo "$container_id|$container_name|$ports"
-    done
+    # Match the published host port exactly; avoid treating 8080 as a match for 80.
+    docker ps --format "{{.ID}}\t{{.Names}}\t{{.Ports}}" 2>/dev/null | \
+    awk -F '\t' -v port="$port" '
+        $3 ~ ("(^|[^0-9])" port "->") {
+            print $1 "|" $2 "|" $3
+        }
+    '
 }
 
 kill_docker_container_by_port() {
@@ -427,39 +484,43 @@ LSOF_CACHE_TIME=0
 find_processes_on_port() {
     local port="$1"
     local pids=""
-    local current_time
-    current_time=$(date +%s)
 
-    # Try lsof first (most reliable) with basic caching
+    # Try lsof first (most reliable). Restrict to exact listening TCP or bound UDP ports.
     if command -v lsof &> /dev/null; then
-        # Use cache if it's less than 2 seconds old (for bulk operations)
-        if [[ -z "$LSOF_CACHE" || $((current_time - LSOF_CACHE_TIME)) -ge 2 ]]; then
-            # Refresh cache with full lsof output
-            LSOF_CACHE=$(lsof -i -n -P 2>/dev/null || true)
-            LSOF_CACHE_TIME=$current_time
-        fi
-
-        # Extract PIDs for this specific port from cache
-        pids=$(echo "$LSOF_CACHE" | awk -v port=":$port" '$9 ~ port {print $2}' | sort -u || true)
+        local tcp_pids udp_pids
+        tcp_pids=$(lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null || true)
+        udp_pids=$(lsof -nP -iUDP:"$port" -t 2>/dev/null || true)
+        pids=$(printf '%s\n%s\n' "$tcp_pids" "$udp_pids" | awk '/^[0-9]+$/ {print}' | sort -u || true)
     fi
     
     # Fallback to ss (modern replacement for netstat)
     if [[ -z "$pids" ]] && command -v ss &> /dev/null; then
-        pids=$(ss -tlnp "sport = :$port" 2>/dev/null | awk 'NR>1 {match($0, /pid=([0-9]+)/, a); if(a[1]) print a[1]}' || true)
+        pids=$(ss -H -ltnp "sport = :$port" 2>/dev/null | sed -n 's/.*pid=\([0-9][0-9]*\).*/\1/p' | sort -u || true)
     fi
 
     # Fallback to netstat
     if [[ -z "$pids" ]] && command -v netstat &> /dev/null; then
         if [[ "$OSTYPE" == "darwin"* ]]; then
-            pids=$(lsof -ti ":$port" 2>/dev/null || true)
+            if command -v lsof &> /dev/null; then
+                pids=$(lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null | sort -u || true)
+            fi
         else
-            pids=$(netstat -tlnp 2>/dev/null | grep ":$port " | awk '{print $7}' | cut -d'/' -f1 | grep -E '^[0-9]+$' || true)
+            pids=$(netstat -tlnp 2>/dev/null | awk -v port="$port" '
+                $6 == "LISTEN" {
+                    local_addr = $4
+                    sub(/^.*[:.]/, "", local_addr)
+                    if (local_addr == port) {
+                        split($7, proc, "/")
+                        if (proc[1] ~ /^[0-9]+$/) print proc[1]
+                    }
+                }
+            ' | sort -u || true)
         fi
     fi
     
     # Fallback to fuser
     if [[ -z "$pids" ]] && command -v fuser &> /dev/null; then
-        pids=$(fuser "$port/tcp" 2>/dev/null | tr -s ' ' | cut -d' ' -f2- || true)
+        pids=$(fuser "$port/tcp" 2>/dev/null | tr ' ' '\n' | awk '/^[0-9]+$/ {print}' | sort -u || true)
     fi
     
     if [[ -z "$pids" ]]; then
@@ -726,7 +787,7 @@ list_processes() {
     # If neither processes nor containers found
     if [[ -z "$pids" && -z "$docker_containers" ]]; then
         if [[ "$JSON_OUTPUT" == "true" ]]; then
-            output_simple_json "$port" ""
+            output_simple_json "$port" "" ""
         else
             if [[ "$DOCKER_MODE" == "true" ]]; then
                 print_colored "$YELLOW" "[i]" "No processes or Docker containers found on port $port"
@@ -834,7 +895,7 @@ list_processes() {
     
     # Output results
     if [[ "$JSON_OUTPUT" == "true" ]]; then
-        output_simple_json "$port" "$pids"
+        output_simple_json "$port" "$pids" "$docker_containers"
     else
         if [[ $count -eq 0 ]]; then
             print_colored "$YELLOW" "[i]" "No valid processes or containers found"
@@ -1374,12 +1435,33 @@ export_history() {
             ;;
         json)
             {
-                echo '['
-                awk -F'|' 'BEGIN {first=1} 
-                     {if(!first) print ","; first=0;
-                      gsub(/"/, "\\""_, $3);
-                      printf "{\"timestamp\":\"%s\",\"action\":\"%s\",\"details\":\"%s\"}", $1, $2, $3}' "$HISTORY_FILE"
-                printf '\n]\n'
+                awk -F'|' '
+                    function json_escape(value) {
+                        gsub(/\\/, "\\\\", value)
+                        gsub(/"/, "\\\"", value)
+                        gsub(/\t/, "\\t", value)
+                        gsub(/\r/, "\\r", value)
+                        return value
+                    }
+                    BEGIN {
+                        print "["
+                        first = 1
+                    }
+                    {
+                        timestamp = json_escape($1)
+                        action = json_escape($2)
+                        details = json_escape($3)
+                        if (!first) {
+                            print ","
+                        }
+                        first = 0
+                        printf "  {\"timestamp\":\"%s\",\"action\":\"%s\",\"details\":\"%s\"}", timestamp, action, details
+                    }
+                    END {
+                        print ""
+                        print "]"
+                    }
+                ' "$HISTORY_FILE"
             } > "$output_file"
             ;;
         *)
@@ -1544,6 +1626,10 @@ benchmark_port() {
     if ! validate_port "$port"; then
         return 1
     fi
+
+    if ! validate_host "$host"; then
+        return 1
+    fi
     
     show_section_header "Port Performance Benchmark - $host:$port"
     
@@ -1613,7 +1699,7 @@ benchmark_port() {
             return 1
         fi
     elif command -v telnet &> /dev/null; then
-        if run_with_timeout "$timeout_seconds" bash -c "echo '' | telnet $host $port" &>/dev/null; then
+        if run_with_timeout "$timeout_seconds" telnet "$host" "$port" </dev/null &>/dev/null; then
             print_colored "$GREEN" "[✓]" "Port $port is accessible on $host"
         else
             print_colored "$RED" "[!]" "Port $port is not accessible on $host"
@@ -1638,7 +1724,7 @@ benchmark_port() {
                 return 0
             fi
         elif command -v telnet &> /dev/null; then
-            if run_with_timeout "$timeout_seconds" bash -c "echo '' | telnet $host $port" &>/dev/null; then
+            if run_with_timeout "$timeout_seconds" telnet "$host" "$port" </dev/null &>/dev/null; then
                 local test_end; test_end=$(get_timestamp)
                 local response_time; response_time=$(echo "$test_end - $test_start" | bc -l 2>/dev/null || echo "scale=3; $test_end - $test_start" | bc)
                 echo "$response_time"
@@ -2065,14 +2151,73 @@ main() {
     else
         # For other commands: parse as ports/ranges
         while [[ $# -gt 0 ]]; do
-            if parsed_ports=$(parse_port_range "$1"); then
-                read -ra range_ports <<< "$parsed_ports"
-                ports+=("${range_ports[@]}")
-            else
-                print_colored "$RED" "[!]" "Invalid port or range: $1"
-                exit 1
-            fi
-            shift
+            case "$1" in
+                --verbose|-v)
+                    VERBOSE_MODE=true
+                    shift
+                    ;;
+                --quiet|-q)
+                    SHOW_HEADERS=false
+                    VERBOSE_MODE=false
+                    shift
+                    ;;
+                --safe|-s)
+                    SAFE_MODE=true
+                    shift
+                    ;;
+                --force|-f)
+                    FORCE_MODE=true
+                    shift
+                    ;;
+                --dry-run|-n)
+                    DRY_RUN_MODE=true
+                    shift
+                    ;;
+                --interactive|-i)
+                    INTERACTIVE_MODE=true
+                    shift
+                    ;;
+                --detailed|-d)
+                    DETAILED_MODE=true
+                    shift
+                    ;;
+                --docker)
+                    DOCKER_MODE=true
+                    shift
+                    ;;
+                --json)
+                    JSON_OUTPUT=true
+                    shift
+                    ;;
+                --no-color)
+                    RED='' GREEN='' YELLOW='' BLUE='' CYAN='' WHITE='' GRAY='' NC='' BOLD=''
+                    shift
+                    ;;
+                --depth)
+                    shift
+                    if [[ "$command" == "tree" && $# -gt 0 && "$1" =~ ^[0-9]+$ ]]; then
+                        TREE_DEPTH="$1"
+                        shift
+                    else
+                        print_colored "$RED" "[!]" "--depth requires a numeric value"
+                        exit 1
+                    fi
+                    ;;
+                --*)
+                    print_colored "$RED" "[!]" "Unknown option: $1"
+                    exit 1
+                    ;;
+                *)
+                    if parsed_ports=$(parse_port_range "$1"); then
+                        read -ra range_ports <<< "$parsed_ports"
+                        ports+=("${range_ports[@]}")
+                    else
+                        print_colored "$RED" "[!]" "Invalid port or range: $1"
+                        exit 1
+                    fi
+                    shift
+                    ;;
+            esac
         done
     fi
     
@@ -2200,8 +2345,9 @@ main() {
 check_dependencies() {
     local missing=()
     
-    local required_commands=("lsof" "ps" "kill")
-    local optional_commands=("bc" "nc" "netstat" "ss")
+    local required_commands=("ps" "kill")
+    local detector_commands=("lsof" "ss" "netstat" "fuser")
+    local optional_commands=("bc" "nc" "telnet" "docker")
     for cmd in "${required_commands[@]}"; do
         if ! command -v "$cmd" &> /dev/null; then
             missing+=("$cmd")
@@ -2211,6 +2357,19 @@ check_dependencies() {
     if [[ ${#missing[@]} -gt 0 ]]; then
         print_colored "$RED" "[!]" "Missing required commands: ${missing[*]}"
         echo "Please install missing dependencies and try again"
+        exit 1
+    fi
+
+    local has_detector=false
+    for cmd in "${detector_commands[@]}"; do
+        if command -v "$cmd" &> /dev/null; then
+            has_detector=true
+            break
+        fi
+    done
+
+    if [[ "$has_detector" != "true" ]]; then
+        print_colored "$RED" "[!]" "Missing port detection command: install lsof, iproute2/ss, netstat, or fuser"
         exit 1
     fi
     

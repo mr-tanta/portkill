@@ -1,294 +1,116 @@
-# Installation Guide
+# Installation
 
-PortKill is designed to be easy to install with multiple options to suit different needs and environments.
+PortKill supports Homebrew, AUR, the install script, and manual release assets.
 
-## 🏆 Recommended: Homebrew (macOS)
-
-The easiest way to install PortKill on macOS:
+## Homebrew
 
 ```bash
-# Add the PortKill tap
 brew tap mr-tanta/portkill
-
-# Install PortKill
 brew install portkill
-
-# Verify installation
 portkill --version
 ```
 
-### Homebrew Management
+Upgrade or remove:
+
 ```bash
-# Update to latest version
 brew upgrade portkill
-
-# Uninstall if needed
 brew uninstall portkill
-
-# Remove tap (optional)
 brew untap mr-tanta/portkill
 ```
 
-## ## Quick Install Script (macOS & Linux)
-
-One-line installation for both macOS and Linux:
+## Arch Linux AUR
 
 ```bash
-# Install latest version
-curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash
-
-# Install specific version
-curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash -s v3.1.0
-
-# Install to custom location
-curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash -s - --prefix=/opt/portkill
-```
-
-### What the script does:
-- Downloads the latest PortKill release
-- Verifies checksums for security
-- Installs to `/usr/local/bin` by default
-- Makes the script executable
-- Adds to system PATH
-
-## 📦 Manual Installation
-
-### From GitHub Releases
-
-```bash
-# Download latest release
-wget https://github.com/mr-tanta/portkill/releases/latest/download/portkill
-
-# Make executable
-chmod +x portkill
-
-# Move to system path
-sudo mv portkill /usr/local/bin/
-
-# Test installation
-portkill --version
-```
-
-### From Source (Development)
-
-For developers and contributors:
-
-```bash
-# Clone the repository
-git clone https://github.com/mr-tanta/portkill.git
-cd portkill
-
-# Make executable
-chmod +x bin/portkill
-
-# Test locally
-./bin/portkill --version
-
-# Optional: Install system-wide
-sudo cp bin/portkill /usr/local/bin/
-
-# Optional: Create symlink for development
-sudo ln -sf "$(pwd)/bin/portkill" /usr/local/bin/portkill
-```
-
-## 🐧 Linux Package Managers
-
-### Arch Linux (AUR)
-```bash
-# Install from AUR
 yay -S portkill
 # or
 paru -S portkill
 ```
 
-### Ubuntu/Debian (.deb package)
-```bash
-# Download and install .deb package
-wget https://github.com/mr-tanta/portkill/releases/latest/download/portkill_3.1.0-1_all.deb
-sudo dpkg -i portkill_3.1.0-1_all.deb
-
-# Fix dependencies if needed
-sudo apt-get install -f
-```
-
-### Red Hat/CentOS/Fedora (.rpm package)
-```bash
-# Download and install .rpm package
-wget https://github.com/mr-tanta/portkill/releases/latest/download/portkill-3.1.0-1.noarch.rpm
-sudo rpm -ivh portkill-3.1.0-1.noarch.rpm
-
-# Or use dnf/yum
-sudo dnf install portkill-3.1.0-1.noarch.rpm
-```
-
-## 🔧 System Requirements
-
-### Required
-- **Shell**: Bash 4.0 or later
-- **OS**: macOS 10.12+, Linux kernel 3.0+, or any Unix-like system
-- **Core utilities**: `lsof`, `ps`, `kill`
-
-### Optional / Recommended
-- **bc**: For advanced benchmarking calculations
-- **netcat**: For port connectivity checks
-- **netstat**: For additional port listing capabilities
-- **ss**: For socket statistics (modern replacement for netstat on Linux)
-- **fuser**: For identifying processes using files or sockets
-- **Docker**: For container management features
-- **curl/wget**: For downloading updates
-
-### Checking Requirements
+## Install Script
 
 ```bash
-# Check Bash version
-bash --version
-
-# Check required utilities
-which lsof ps kill
-
-# Check optional/recommended utilities
-which bc netcat netstat ss fuser docker curl
-```
-
-## - Verification
-
-After installation, verify PortKill is working correctly:
-
-```bash
-# Check version
-portkill --version
-
-# Test basic functionality
-portkill list 3000
-
-# Test help system
-portkill --help
-
-# Test with JSON output
-portkill --json list 3000
-
-# Test interactive menu
-portkill menu
-```
-
-## 🔄 Updates
-
-### Homebrew
-```bash
-brew upgrade portkill
-```
-
-### Manual Updates
-```bash
-# Re-run install script
+# Latest release
 curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash
 
-# Or download new release manually
-wget https://github.com/mr-tanta/portkill/releases/latest/download/portkill -O /usr/local/bin/portkill
-chmod +x /usr/local/bin/portkill
+# Specific release
+curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash -s v3.1.1
+
+# Custom prefix
+curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/install.sh | bash -s -- --prefix=/opt/portkill
 ```
 
-### Check for Updates
+The script downloads the release asset from GitHub, installs it to `PREFIX/bin`, and verifies the installed binary directly. If the install directory is not in `PATH`, the installer prints a warning.
+
+## Manual Release Asset
+
 ```bash
-# Current version
+curl -L https://github.com/mr-tanta/portkill/releases/latest/download/portkill -o portkill
+chmod +x portkill
+sudo mv portkill /usr/local/bin/
 portkill --version
-
-# Check latest release on GitHub
-curl -s https://api.github.com/repos/mr-tanta/portkill/releases/latest | grep '"tag_name"'
 ```
 
-## 🗑️ Uninstallation
+## Debian and RPM Packages
 
-### Homebrew
-```bash
-brew uninstall portkill
-brew untap mr-tanta/portkill
-```
+Debian and RPM packages are built by the package workflow for releases. Use the `.deb` or `.rpm` assets on the GitHub release page when they are present.
 
-### Manual Removal
-```bash
-# Remove binary
-sudo rm /usr/local/bin/portkill
+## Requirements
 
-# Remove any config (if exists)
-rm -rf ~/.portkill
+Required:
 
-# Remove from PATH if manually added
-# Edit ~/.bashrc, ~/.zshrc, etc. to remove any PATH additions
-```
+- Bash 3.2+
+- `ps`
+- `kill`
+- At least one port detector: `lsof`, `ss`, `netstat`, or `fuser`
 
-### Package Managers
+Optional:
+
+- `bc` for benchmark calculations
+- `nc` or `telnet` for benchmarking
+- Docker CLI for `--docker`
+
+Common Linux installs:
+
 ```bash
 # Debian/Ubuntu
-sudo apt remove portkill
+sudo apt-get install lsof iproute2 psmisc bc netcat-openbsd
 
-# Red Hat/CentOS/Fedora
-sudo dnf remove portkill
-# or
-sudo rpm -e portkill
+# Fedora/RHEL
+sudo dnf install lsof iproute psmisc bc nmap-ncat
 
-# Arch Linux
-pacman -R portkill
-# or
-yay -R portkill
+# Arch
+sudo pacman -S lsof iproute2 psmisc bc openbsd-netcat
 ```
 
-## 🚨 Troubleshooting Installation
+## Uninstall
 
-### Common Issues
-
-#### 1. Permission Denied
 ```bash
-# Solution: Use sudo for system-wide installation
-sudo mv portkill /usr/local/bin/
-sudo chmod +x /usr/local/bin/portkill
+# Script uninstall
+curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/uninstall.sh | bash
+
+# Remove user config too
+curl -sSL https://raw.githubusercontent.com/mr-tanta/portkill/main/uninstall.sh | bash -s -- --remove-config
+
+# Homebrew
+brew uninstall portkill
+brew untap mr-tanta/portkill
+
+# AUR
+sudo pacman -R portkill
 ```
 
-#### 2. Command Not Found
+Manual removal:
+
 ```bash
-# Check if installed location is in PATH
-echo $PATH | grep -o '/usr/local/bin'
-
-# Add to PATH if missing (add to ~/.bashrc or ~/.zshrc)
-export PATH="/usr/local/bin:$PATH"
+sudo rm -f /usr/local/bin/portkill
+rm -rf ~/.portkill
 ```
 
-#### 3. Missing Dependencies
+## Verify
+
 ```bash
-# macOS: Install Xcode Command Line Tools
-xcode-select --install
-
-# Linux: Install required packages
-# Ubuntu/Debian
-sudo apt-get install lsof psmisc net-tools
-
-# CentOS/RHEL
-sudo yum install lsof psmisc net-tools
-
-# Arch Linux
-sudo pacman -S lsof psmisc net-tools
+portkill --version
+portkill --help
+portkill list
+portkill --dry-run 3000
 ```
-
-#### 4. Old Version Cached
-```bash
-# Clear bash command cache
-hash -r
-
-# Or restart terminal
-```
-
-### Getting Help
-
-If you encounter issues:
-
-1. Check our [Troubleshooting Guide](Troubleshooting.md)
-2. Search [existing issues](https://github.com/mr-tanta/portkill/issues)
-3. Create a [new issue](https://github.com/mr-tanta/portkill/issues/new) with:
-   - Your OS and version
-   - Bash version (`bash --version`)
-   - Installation method used
-   - Error messages
-
----
-
-**Next:** [Quick Start Guide](Quick-Start.md)

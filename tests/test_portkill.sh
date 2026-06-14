@@ -119,6 +119,8 @@ test_command_options() {
     run_test "Dry-run flag" "$PORTKILL" --dry-run list 80
     run_test "Verbose flag" "$PORTKILL" --verbose list 80
     run_test "Quiet flag" "$PORTKILL" --quiet list 80
+    run_test "Detailed flag after list command" "$PORTKILL" list --detailed 65432
+    run_test "Dry-run flag after kill command" "$PORTKILL" kill --dry-run 65432
 }
 
 test_multiple_ports() {
@@ -167,6 +169,33 @@ test_security() {
     
     # Test protected process handling (check if safe mode is mentioned in help)
     run_test_with_output "Protected processes respected" "safe" "$PORTKILL" --help
+
+    run_test "Benchmark rejects shell metacharacters in host" bash -c '
+        set -e
+        fake_bin=$(mktemp -d)
+        tmp_home=$(mktemp -d)
+        marker=$(mktemp)
+        rm -f "$marker"
+        cleanup() {
+            rm -rf "$fake_bin" "$tmp_home"
+            rm -f "$marker"
+        }
+        trap cleanup EXIT
+
+        for cmd in bash lsof ps bc date sleep mktemp cat rm sort cut grep awk sed tr wc mkdir touch; do
+            cmd_path=$(command -v "$cmd")
+            ln -s "$cmd_path" "$fake_bin/$cmd"
+        done
+
+        cat > "$fake_bin/telnet" <<'"'"'EOF'"'"'
+#!/bin/bash
+exit 0
+EOF
+        chmod +x "$fake_bin/telnet"
+
+        PATH="$fake_bin" HOME="$tmp_home" "$0" benchmark 1234 "127.0.0.1; touch $marker #" 1 >/dev/null 2>&1 || true
+        test ! -e "$marker"
+    ' "$PORTKILL"
 }
 
 # Performance tests (basic)
@@ -177,6 +206,82 @@ test_performance() {
     run_test "Version command performance" "$PORTKILL" --version
     run_test "Help command performance" "$PORTKILL" --help
     run_test "List command performance" "$PORTKILL" list 80
+}
+
+test_regressions() {
+    print_test_header "Regression Tests"
+
+    run_test "Exact port matching avoids prefix collisions" bash -c '
+        set -e
+        command -v python3 >/dev/null 2>&1 || exit 0
+
+        tmp_home=$(mktemp -d)
+        log_file=$(mktemp)
+        python3 -m http.server 18080 --bind 127.0.0.1 >"$log_file" 2>&1 &
+        server_pid=$!
+        cleanup() {
+            kill "$server_pid" 2>/dev/null || true
+            wait "$server_pid" 2>/dev/null || true
+            rm -rf "$tmp_home"
+            rm -f "$log_file"
+        }
+        trap cleanup EXIT
+
+        sleep 1
+        ps -p "$server_pid" >/dev/null 2>&1
+        output=$(HOME="$tmp_home" "$0" --json list 1808)
+        ! echo "$output" | grep -q "\"pid\": $server_pid"
+    ' "$PORTKILL"
+
+    run_test "History JSON export creates valid JSON" bash -c '
+        set -e
+        command -v python3 >/dev/null 2>&1 || exit 0
+
+        tmp_home=$(mktemp -d)
+        tmp_work=$(mktemp -d)
+        cleanup() {
+            rm -rf "$tmp_home" "$tmp_work"
+        }
+        trap cleanup EXIT
+
+        cd "$tmp_work"
+        HOME="$tmp_home" "$0" --quiet list 65432 >/dev/null
+        HOME="$tmp_home" "$0" history --export json >/dev/null
+        json_file=$(ls portkill_history_*.json | head -1)
+        python3 -m json.tool "$json_file" >/dev/null
+    ' "$PORTKILL"
+
+    run_test "Docker JSON includes container records" bash -c '
+        set -e
+        command -v python3 >/dev/null 2>&1 || exit 0
+
+        tmp_home=$(mktemp -d)
+        fake_bin=$(mktemp -d)
+        cleanup() {
+            rm -rf "$tmp_home" "$fake_bin"
+        }
+        trap cleanup EXIT
+
+        cat > "$fake_bin/docker" <<'"'"'EOF'"'"'
+#!/bin/bash
+case "$1" in
+    info)
+        exit 0
+        ;;
+    ps)
+        printf "CONTAINER ID\tNAMES\tPORTS\n"
+        printf "abc123def456\tweb\t0.0.0.0:4567->80/tcp\n"
+        ;;
+    *)
+        exit 1
+        ;;
+esac
+EOF
+        chmod +x "$fake_bin/docker"
+
+        output=$(PATH="$fake_bin:$PATH" HOME="$tmp_home" "$0" --docker --json list 4567)
+        printf "%s" "$output" | python3 -c "import json,sys; data=json.load(sys.stdin); proc=data[\"processes\"][0]; assert proc[\"type\"] == \"container\" and proc[\"container_id\"] == \"abc123def456\" and proc[\"name\"] == \"web\""
+    ' "$PORTKILL"
 }
 
 # Main test runner
@@ -201,6 +306,7 @@ run_all_tests() {
     test_installation_scripts
     test_security
     test_performance
+    test_regressions
     
     # Print summary
     echo -e "\n${BLUE}=== Test Summary ===${NC}"

@@ -1,5 +1,5 @@
 Name:           portkill
-Version:        3.1.0
+Version:        3.1.1
 Release:        1%{?dist}
 Summary:        Lightweight, zero-dependency port management tool following Unix philosophy
 License:        MIT
@@ -8,21 +8,22 @@ Source0:        https://github.com/mr-tanta/portkill/archive/v%{version}.tar.gz
 
 BuildArch:      noarch
 
-Requires:       bash >= 4.0
+Requires:       bash >= 3.2
 Requires:       coreutils
-Requires:       util-linux
 Requires:       procps-ng
+Requires:       iproute
 
 Recommends:     bc
 Recommends:     nmap-ncat
 Recommends:     lsof
-Recommends:     iproute
+Recommends:     psmisc
+Recommends:     net-tools
 
 %description
-PortKill is a lightweight, zero-dependency port management tool that follows
-the Unix philosophy of "do one thing and do it well". This is the v3.0.0
-SIMPLIFICATION RELEASE that returns to PortKill's core mission of reliable
-port management without bloat.
+PortKill is a lightweight port management tool that follows the Unix
+philosophy of "do one thing and do it well". It focuses on reliable local
+port inspection, process termination, Docker container handling, process tree
+visualization, history, and basic benchmarking.
 
 Key features:
 - Zero dependencies: Pure Bash with standard Unix utilities only
@@ -78,10 +79,6 @@ install -m 644 uninstall.sh $RPM_BUILD_ROOT%{_docdir}/%{name}/uninstall.sh
 %{_docdir}/%{name}/uninstall.sh
 
 %post
-# Create log directory
-mkdir -p /var/log/portkill
-chmod 755 /var/log/portkill
-
 echo "PortKill has been installed successfully!"
 echo "Run 'portkill --help' to get started."
 echo ""
@@ -89,16 +86,20 @@ echo "Configuration file: /etc/portkill/portkill.conf"
 echo "Documentation: %{_docdir}/%{name}/"
 
 %preun
-# Stop any running portkill processes
-pkill -f "portkill" 2>/dev/null || true
+# Package removal does not terminate user-managed PortKill commands.
+:
 
 %postun
-if [ $1 -eq 0 ]; then
-    # Remove log directory on complete uninstall
-    rm -rf /var/log/portkill 2>/dev/null || true
-fi
+:
 
 %changelog
+* Sun Jun 14 2026 mr-tanta <sir.tanta@gmail.com> - 3.1.1-1
+- Fixed exact port matching to avoid false positives across similar port numbers
+- Fixed JSON history export and Docker JSON container records
+- Fixed parser handling for flags after subcommands
+- Removed benchmark shell injection risk in telnet fallback
+- Aligned package dependencies, config files, docs, and release assets
+
 * Sat Mar 08 2025 mr-tanta <sir.tanta@gmail.com> - 3.1.0-1
 - 20 bug fixes for stability and cross-platform compatibility
 - Added ss fallback for process detection
@@ -107,7 +108,7 @@ fi
 - Safe config parsing (no longer sources config file)
 - Bash 3.2 compatibility for macOS
 
-* Thu Sep 26 2024 mr-tanta <your-email@example.com> - 3.0.0-1
+* Thu Sep 26 2024 mr-tanta <sir.tanta@gmail.com> - 3.0.0-1
 - SIMPLIFICATION RELEASE - Back to Unix Roots
 - Zero dependencies: Pure Bash with standard Unix utilities only
 - Lightweight: Reduced from 3,371 to 2,106 lines (38% smaller)
@@ -117,12 +118,12 @@ fi
 - Strategic positioning as PortKill Core for future three-tier strategy
 - Fixed ShellCheck warnings and updated version handling
 
-* Wed Sep 25 2024 mr-tanta <your-email@example.com> - 2.2.2-1
+* Wed Sep 25 2024 mr-tanta <sir.tanta@gmail.com> - 2.2.2-1
 - Bug fixes and stability improvements
 - Enhanced error handling
 - Improved cross-platform compatibility
 
-* Wed Sep 25 2024 mr-tanta <your-email@example.com> - 2.0.0-1
+* Wed Sep 25 2024 mr-tanta <sir.tanta@gmail.com> - 2.0.0-1
 - Initial RPM package release
 - Complete rewrite with advanced features
 - Added comprehensive port management capabilities

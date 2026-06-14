@@ -5,6 +5,22 @@ All notable changes to PortKill will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] - 2026-06-14
+
+### Fixed
+- Exact port matching now avoids false positives such as port `80` matching `8080`.
+- JSON history export now emits valid JSON.
+- Docker JSON output now includes container records.
+- Flags after subcommands now work, for example `portkill list --detailed 3000`.
+- Benchmark telnet fallback no longer runs user-controlled host values through `bash -c`.
+- Package uninstall hooks no longer terminate user-managed `portkill` commands.
+- Package-managed `/etc/portkill/portkill.conf` now uses supported runtime keys.
+- Install and uninstall scripts now match documented version, prefix, and config-removal arguments.
+
+### Changed
+- Runtime dependency checks now require `ps`, `kill`, and at least one detector: `lsof`, `ss`, `netstat`, or `fuser`.
+- README and installation docs now reflect the current local-only CLI and package channel behavior.
+
 ## [3.0.0] - 2024-09-26
 
 ### SIMPLIFICATION RELEASE - "Back to Unix Roots"

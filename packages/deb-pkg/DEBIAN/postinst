@@ -9,10 +9,6 @@ mkdir -p /etc/portkill
 chmod 755 /usr/bin/portkill
 chmod 644 /etc/portkill/portkill.conf 2>/dev/null || true
 
-# Create log directory
-mkdir -p /var/log/portkill
-chmod 755 /var/log/portkill
-
 echo "PortKill has been installed successfully!"
 echo "Run 'portkill --help' to get started."
 echo ""

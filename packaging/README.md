@@ -1,186 +1,119 @@
 # PortKill Package Files
 
-This directory contains packaging configurations for distributing PortKill across different package managers and Linux distributions.
+This directory contains packaging metadata for AUR, Debian, and RPM-based distributions.
 
 ## Package Types
 
-### 📦 Arch Linux (AUR)
-- **Directory**: `aur/`
-- **Files**: `PKGBUILD`
-- **Installation**: `yay -S portkill` or `paru -S portkill`
-- **Maintainer**: Community-maintained through AUR
+### Arch Linux (AUR)
 
-### 📦 Debian/Ubuntu (.deb)
-- **Directory**: `debian/`
-- **Files**: `DEBIAN/control`, `DEBIAN/postinst`, `DEBIAN/prerm`
-- **Installation**: `sudo dpkg -i portkill_2.3.0-1_all.deb`
-- **Compatible**: Ubuntu 18.04+, Debian 9+
+- Directory: `aur/`
+- Files: `PKGBUILD`, `.SRCINFO`
+- Install: `yay -S portkill` or `paru -S portkill`
 
-### 📦 RPM-based (.rpm)
-- **Directory**: `rpm/`
-- **Files**: `portkill.spec`
-- **Installation**: `sudo rpm -i portkill-2.3.0-1.noarch.rpm`
-- **Compatible**: RHEL/CentOS 7+, Fedora 28+, openSUSE
+### Debian/Ubuntu (.deb)
 
-## Building Packages
+- Directory: `debian/`
+- Files: `DEBIAN/control`, `DEBIAN/postinst`, `DEBIAN/prerm`
+- Install: `sudo dpkg -i portkill_3.1.1-1_all.deb`
 
-### Automated Building (GitHub Actions)
-Packages are automatically built on every release through GitHub Actions:
-- **Workflow**: `.github/workflows/package-build.yml`
-- **Triggers**: Release creation, tag pushes
-- **Artifacts**: Uploaded to GitHub Releases
+### RPM-based (.rpm)
 
-### Manual Building
-Use the provided build script:
+- Directory: `rpm/`
+- Files: `portkill.spec`
+- Install: `sudo rpm -i portkill-3.1.1-1.noarch.rpm`
+
+## Build Packages
 
 ```bash
 # Build all packages
 ./scripts/build-packages.sh
 
-# Build only .deb package
+# Build only one format
 ./scripts/build-packages.sh --deb-only
-
-# Build only .rpm package
 ./scripts/build-packages.sh --rpm-only
 
-# Build with custom version
-./scripts/build-packages.sh --version 3.1.0
+# Override version
+./scripts/build-packages.sh --version 3.1.1
 ```
 
-### Prerequisites for Manual Building
+Manual build dependencies:
 
-#### Ubuntu/Debian
 ```bash
+# Ubuntu/Debian
 sudo apt-get install build-essential fakeroot dpkg-dev rpm lintian
-```
 
-#### RHEL/Fedora
-```bash
+# Fedora/RHEL
 sudo dnf install rpm-build rpmdevtools dpkg fakeroot
 ```
 
-## Package Details
+## Runtime Dependencies
 
-### Dependencies
-- **Required**: `bash`, `coreutils`, `util-linux`, `procps`
-- **Recommended**: `bc`, `netcat`/`nmap-ncat`, `lsof`, `iproute2`
+Required:
 
-### Installation Layout
-```
-/usr/bin/portkill                    # Main executable
-/etc/portkill/portkill.conf         # Configuration file
-/usr/share/doc/portkill/            # Documentation
+- Bash 3.2+
+- `coreutils`
+- `procps`/`procps-ng`
+- At least one detector: `iproute2`/`iproute` for `ss`, `lsof`, `net-tools`, or `psmisc`
+
+Recommended:
+
+- `bc`
+- `netcat`/`nmap-ncat`
+- `lsof`
+- `psmisc`
+- Docker CLI for `--docker`
+
+## Installation Layout
+
+```text
+/usr/bin/portkill
+/etc/portkill/portkill.conf
+/usr/share/doc/portkill/
 ├── README.md
 ├── CONTRIBUTING.md
 ├── LICENSE
 ├── install.sh
 └── uninstall.sh
-/var/log/portkill/                  # Log directory (created on install)
 ```
 
-### Post-Install Actions
-- Creates `/etc/portkill/` configuration directory
-- Creates `/var/log/portkill/` log directory
-- Sets proper file permissions
-- Displays installation success message
+PortKill writes user logs and history under `~/.portkill/`. Packages do not terminate user-managed PortKill commands during uninstall.
 
-### Pre-Removal Actions
-- Stops any running PortKill processes
-- Preserves user configuration and logs
+## Release Maintenance
 
-## Package Maintenance
+When releasing a new version:
 
-### Version Updates
-When releasing new versions:
-1. Update version numbers in:
-   - `aur/PKGBUILD` (`pkgver=`)
-   - `debian/DEBIAN/control` (`Version:`)
-   - `rpm/portkill.spec` (`Version:`)
-   - `scripts/build-packages.sh` (default version)
+1. Update version numbers in package metadata.
+2. Create the GitHub release/tag.
+3. Replace AUR and Homebrew checksums with the checksum for the released GitHub tarball.
+4. Run package builds and upload `.deb`/`.rpm` assets to the release.
+5. Publish the Homebrew tap and AUR updates.
 
-2. Update changelog in `rpm/portkill.spec`
+AUR publishing:
 
-3. Test package building locally:
-   ```bash
-   ./scripts/build-packages.sh --version NEW_VERSION
-   ```
-
-### AUR Publishing
-1. Clone the AUR repository:
-   ```bash
-   git clone ssh://aur@aur.archlinux.org/portkill.git portkill-aur
-   ```
-
-2. Copy updated PKGBUILD:
-   ```bash
-   cp packaging/aur/PKGBUILD portkill-aur/
-   ```
-
-3. Generate .SRCINFO:
-   ```bash
-   cd portkill-aur
-   makepkg --printsrcinfo > .SRCINFO
-   ```
-
-4. Commit and push:
-   ```bash
-   git add .
-   git commit -m "Update to version X.Y.Z"
-   git push
-   ```
-
-## Testing Packages
-
-### Debian Package Testing
 ```bash
-# Build and test
+git clone ssh://aur@aur.archlinux.org/portkill.git portkill-aur
+cp packaging/aur/PKGBUILD portkill-aur/
+cd portkill-aur
+makepkg --printsrcinfo > .SRCINFO
+git add PKGBUILD .SRCINFO
+git commit -m "Update portkill"
+git push
+```
+
+## Package Testing
+
+```bash
+# Debian
 ./scripts/build-packages.sh --deb-only
 sudo dpkg -i build/portkill_*_all.deb
-
-# Test installation
 portkill --version
-portkill --help
-
-# Verify files
 dpkg -L portkill
-
-# Remove for testing
 sudo dpkg -r portkill
-```
 
-### RPM Package Testing
-```bash
-# Build and test
+# RPM
 ./scripts/build-packages.sh --rpm-only
 sudo rpm -i build/portkill-*.noarch.rpm
-
-# Test installation
 portkill --version
-
-# Verify files
 rpm -ql portkill
-
-# Remove for testing
 sudo rpm -e portkill
 ```
-
-## Troubleshooting
-
-### Common Build Issues
-- **Missing dependencies**: Install build tools and packaging utilities
-- **Permission errors**: Use `fakeroot` or run build script as regular user
-- **Version conflicts**: Ensure version consistency across all package files
-
-### Package Installation Issues
-- **Dependency problems**: Install missing dependencies manually
-- **Conflicts**: Remove existing installations before installing new packages
-- **Permission issues**: Run installation commands with `sudo`
-
-## Contributing
-
-When adding support for new package managers:
-1. Create appropriate directory structure
-2. Add package configuration files
-3. Update build scripts and GitHub Actions
-4. Update this README with new instructions
-5. Test thoroughly on target distributions
