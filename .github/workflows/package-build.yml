@@ -61,10 +61,16 @@ jobs:
         mkdir -p portkill-deb/usr/bin
         mkdir -p portkill-deb/etc/portkill
         mkdir -p portkill-deb/usr/share/doc/portkill
+        mkdir -p portkill-deb/usr/share/bash-completion/completions
+        mkdir -p portkill-deb/usr/share/zsh/site-functions
+        mkdir -p portkill-deb/usr/share/fish/vendor_completions.d
         
         # Copy files
         cp bin/portkill portkill-deb/usr/bin/portkill
         cp portkill.conf portkill-deb/etc/portkill/portkill.conf
+        ./bin/portkill completion bash > portkill-deb/usr/share/bash-completion/completions/portkill
+        ./bin/portkill completion zsh > portkill-deb/usr/share/zsh/site-functions/_portkill
+        ./bin/portkill completion fish > portkill-deb/usr/share/fish/vendor_completions.d/portkill.fish
         cp README.md CONTRIBUTING.md LICENSE portkill-deb/usr/share/doc/portkill/
         cp install.sh uninstall.sh portkill-deb/usr/share/doc/portkill/
         if [[ -f assets/portkill-preview.gif ]]; then

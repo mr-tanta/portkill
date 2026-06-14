@@ -108,8 +108,15 @@ jobs:
             
             ### 🔧 Usage
             ```bash
+            portkill doctor 3000
+            portkill --dry-run 3000
             portkill 3000
             ```
+
+            ### ✨ Highlights
+            - `doctor` explains what owns a port and suggests safe next steps
+            - Default terminal kills ask before terminating; use `--yes` for automation
+            - Bash, Zsh, and Fish completions are available with `portkill completion`
           draft: false
           prerelease: false
           generate_release_notes: true

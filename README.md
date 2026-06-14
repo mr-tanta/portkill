@@ -4,8 +4,11 @@
 [![Version](https://img.shields.io/github/v/release/mr-tanta/portkill)](https://github.com/mr-tanta/portkill/releases)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-blue)](https://github.com/mr-tanta/portkill)
 [![Homebrew](https://img.shields.io/badge/Homebrew-available-orange)](https://github.com/mr-tanta/homebrew-portkill)
+[![AUR](https://img.shields.io/aur/version/portkill?label=AUR)](https://aur.archlinux.org/packages/portkill)
 
 PortKill is a Bash CLI for finding and terminating processes that bind local ports. It is built for developer workstations, servers, and container-heavy local environments where port conflicts need to be resolved quickly and safely.
+
+No npm, Python, Rust, Go, daemon, or background service required. PortKill is a single Unix shell tool with package manager support.
 
 <p align="center">
   <img src="assets/portkill-preview.gif" alt="Animated PortKill preview showing list, dry-run, Docker, and JSON workflows" width="860">
@@ -18,6 +21,8 @@ PortKill is a Bash CLI for finding and terminating processes that bind local por
 - Protected-process whitelist for system-critical processes
 - Docker container detection and stop/kill support with `--docker`
 - JSON output for automation
+- Project-aware `doctor` command for dependency checks, framework hints, and safe next steps
+- Bash, Zsh, and Fish completion generation
 - Process tree view, real-time monitoring, history, and CSV/JSON exports
 - Basic connection benchmarking for local and remote hosts
 - macOS and Linux support with standard Unix tools
@@ -103,7 +108,12 @@ portkill --force 3000
 
 # Ask before each kill
 portkill --interactive 8080
+
+# Skip confirmation for scripts and CI
+portkill kill --yes 3000
 ```
+
+When run in a terminal, default kills such as `portkill 3000` ask before terminating. Use `--yes` or `--no-confirm` for trusted automation.
 
 ### Inspect Ports
 
@@ -155,6 +165,69 @@ portkill benchmark 3000 localhost 20
 portkill benchmark 443 github.com
 portkill menu
 ```
+
+### Diagnose Port Conflicts
+
+```bash
+# Check PortKill setup and detector availability
+portkill doctor
+
+# Explain what owns a busy port and suggest safe next steps
+portkill doctor 3000
+
+# Same as doctor
+portkill --doctor
+```
+
+`doctor` reports the owning PID, user, command, detected working directory when available, likely project type such as Vite, Next.js, Docker, Ruby, Rust, Go, or Python, and the safest follow-up command.
+
+### Shell Completions
+
+```bash
+portkill completion bash
+portkill completion zsh
+portkill completion fish
+```
+
+Debian/RPM and AUR packages install completions automatically. Homebrew users can generate completions with the commands above until the next formula update installs them directly.
+
+## Fix Common Errors
+
+### `EADDRINUSE: address already in use :::3000`
+
+```bash
+portkill doctor 3000
+portkill --dry-run 3000
+portkill --yes 3000
+```
+
+### Vite, Next.js, Rails, or API Server Says Port Is Already In Use
+
+```bash
+portkill doctor 5173
+portkill doctor 3000
+portkill list --detailed 3000
+```
+
+### Docker Container Holds The Port
+
+```bash
+portkill --docker list 8080
+portkill --docker --dry-run 8080
+portkill --docker kill --yes 8080
+```
+
+## Why PortKill Instead Of Common Alternatives?
+
+```bash
+npx kill-port 3000          # requires Node/npm
+fkill :3000                 # general process killer
+portkill doctor 3000        # explains the owner and project context
+portkill --dry-run 3000     # safe preview
+portkill --docker 8080      # process and container-aware
+```
+
+PortKill focuses on exact port ownership, safe termination, Docker awareness, package-manager installs, and zero runtime dependency overhead.
 
 ## Configuration
 

@@ -80,11 +80,17 @@ build_deb() {
     mkdir -p "$deb_dir/usr/bin"
     mkdir -p "$deb_dir/etc/portkill"
     mkdir -p "$deb_dir/usr/share/doc/portkill"
+    mkdir -p "$deb_dir/usr/share/bash-completion/completions"
+    mkdir -p "$deb_dir/usr/share/zsh/site-functions"
+    mkdir -p "$deb_dir/usr/share/fish/vendor_completions.d"
     mkdir -p "$deb_dir/DEBIAN"
     
     # Copy files
     cp "$PROJECT_DIR/bin/portkill" "$deb_dir/usr/bin/portkill"
     cp "$PROJECT_DIR/portkill.conf" "$deb_dir/etc/portkill/portkill.conf"
+    "$PROJECT_DIR/bin/portkill" completion bash > "$deb_dir/usr/share/bash-completion/completions/portkill"
+    "$PROJECT_DIR/bin/portkill" completion zsh > "$deb_dir/usr/share/zsh/site-functions/_portkill"
+    "$PROJECT_DIR/bin/portkill" completion fish > "$deb_dir/usr/share/fish/vendor_completions.d/portkill.fish"
     cp "$PROJECT_DIR/README.md" "$deb_dir/usr/share/doc/portkill/"
     cp "$PROJECT_DIR/CONTRIBUTING.md" "$deb_dir/usr/share/doc/portkill/"
     cp "$PROJECT_DIR/LICENSE" "$deb_dir/usr/share/doc/portkill/"

@@ -19,11 +19,17 @@ echo "Setting up package structures..."
 mkdir -p "deb-pkg/usr/bin"
 mkdir -p "deb-pkg/etc/portkill" 
 mkdir -p "deb-pkg/usr/share/doc/portkill"
+mkdir -p "deb-pkg/usr/share/bash-completion/completions"
+mkdir -p "deb-pkg/usr/share/zsh/site-functions"
+mkdir -p "deb-pkg/usr/share/fish/vendor_completions.d"
 mkdir -p "deb-pkg/DEBIAN"
 
 # Copy files
 cp "../bin/portkill" "deb-pkg/usr/bin/portkill"
 cp "../portkill.conf" "deb-pkg/etc/portkill/portkill.conf"
+../bin/portkill completion bash > "deb-pkg/usr/share/bash-completion/completions/portkill"
+../bin/portkill completion zsh > "deb-pkg/usr/share/zsh/site-functions/_portkill"
+../bin/portkill completion fish > "deb-pkg/usr/share/fish/vendor_completions.d/portkill.fish"
 cp "../README.md" "../CONTRIBUTING.md" "../LICENSE" "deb-pkg/usr/share/doc/portkill/"
 cp "../install.sh" "../uninstall.sh" "deb-pkg/usr/share/doc/portkill/"
 if [[ -f "../assets/portkill-preview.gif" ]]; then

@@ -14,22 +14,22 @@ type TerminalLine = {
 };
 
 const terminalLines: TerminalLine[] = [
-  { at: -10, text: "$ portkill list 3000", tone: "command", typed: true },
-  { at: 42, text: "PID    NAME       PORT   STATE", tone: "muted" },
-  { at: 50, text: "8421   node       3000   LISTEN", tone: "process" },
-  { at: 74, text: "$ portkill --dry-run 3000", tone: "command", typed: true },
-  { at: 103, text: "[dry-run] would terminate PID 8421 (node)", tone: "warning" },
-  { at: 128, text: "$ portkill --docker list 8080", tone: "command", typed: true },
-  { at: 158, text: "api-web  0.0.0.0:8080->80/tcp  container", tone: "process" },
-  { at: 184, text: "$ portkill --json list 4567", tone: "command", typed: true },
-  { at: 211, text: '{"port":4567,"processes":[],"safe":true}', tone: "json" },
+  { at: -10, text: "$ portkill doctor 3000", tone: "command", typed: true },
+  { at: 36, text: "Project: ~/apps/web  Hint: Vite dev server", tone: "process" },
+  { at: 56, text: "Suggestion: portkill --dry-run 3000", tone: "warning" },
+  { at: 82, text: "$ portkill 3000", tone: "command", typed: true },
+  { at: 112, text: "Kill process 8421 (node)? (y/N/q):", tone: "warning" },
+  { at: 138, text: "$ portkill --docker list 8080", tone: "command", typed: true },
+  { at: 168, text: "api-web  0.0.0.0:8080->80/tcp", tone: "process" },
+  { at: 192, text: "$ portkill completion zsh", tone: "command", typed: true },
+  { at: 218, text: "#compdef portkill", tone: "json" },
 ];
 
 const highlights = [
-  { at: 40, label: "Exact port matching", value: "3000 != 30000" },
-  { at: 96, label: "Dry-run safety", value: "Preview before kill" },
+  { at: 32, label: "Project aware", value: "Vite, Next.js, Docker" },
+  { at: 92, label: "Safer defaults", value: "TTY prompts first" },
   { at: 150, label: "Docker aware", value: "Processes + containers" },
-  { at: 206, label: "Automation ready", value: "JSON output" },
+  { at: 206, label: "Shell native", value: "Bash, Zsh, Fish" },
 ];
 
 const toneColor = {

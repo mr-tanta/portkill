@@ -52,12 +52,20 @@ mkdir -p $RPM_BUILD_ROOT%{_bindir}
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/portkill
 mkdir -p $RPM_BUILD_ROOT%{_docdir}/%{name}
 mkdir -p $RPM_BUILD_ROOT%{_datadir}/doc/%{name}
+mkdir -p $RPM_BUILD_ROOT%{_datadir}/bash-completion/completions
+mkdir -p $RPM_BUILD_ROOT%{_datadir}/zsh/site-functions
+mkdir -p $RPM_BUILD_ROOT%{_datadir}/fish/vendor_completions.d
 
 # Install main script
 install -m 755 bin/portkill $RPM_BUILD_ROOT%{_bindir}/portkill
 
 # Install configuration file
 install -m 644 portkill.conf $RPM_BUILD_ROOT%{_sysconfdir}/portkill/portkill.conf
+
+# Install shell completions
+bin/portkill completion bash > $RPM_BUILD_ROOT%{_datadir}/bash-completion/completions/portkill
+bin/portkill completion zsh > $RPM_BUILD_ROOT%{_datadir}/zsh/site-functions/_portkill
+bin/portkill completion fish > $RPM_BUILD_ROOT%{_datadir}/fish/vendor_completions.d/portkill.fish
 
 # Install documentation
 install -m 644 README.md $RPM_BUILD_ROOT%{_docdir}/%{name}/README.md
@@ -76,6 +84,9 @@ install -m 644 uninstall.sh $RPM_BUILD_ROOT%{_docdir}/%{name}/uninstall.sh
 %defattr(-,root,root,-)
 %{_bindir}/portkill
 %config(noreplace) %{_sysconfdir}/portkill/portkill.conf
+%{_datadir}/bash-completion/completions/portkill
+%{_datadir}/zsh/site-functions/_portkill
+%{_datadir}/fish/vendor_completions.d/portkill.fish
 %{_docdir}/%{name}/README.md
 %{_docdir}/%{name}/CONTRIBUTING.md
 %{_docdir}/%{name}/LICENSE
